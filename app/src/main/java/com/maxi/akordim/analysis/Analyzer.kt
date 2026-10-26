@@ -725,6 +725,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             val runs = bassRuns(beatBass, b, e, base)
             for ((rs, re, bassPc) in runs) {
                 var chord = base
+                var rerooted: Chord? = null
                 if (bassPc >= 0 && bassPc != base.root) {
                     val bassAvg = DoubleArray(12)
                     for (k in rs until re) for (p in 0 until 12) bassAvg[p] += bassRaw[k][p]
@@ -734,18 +735,22 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                         // Am7 with G in the bass reads better as Am/G
                         val seventh = Notes.pc(base.root + (base.quality.intervals.getOrNull(3) ?: -100))
                         if (base.quality.isSeventh && bassPc == seventh) chord = Chord(base.root, base.quality.triad, bassPc)
-                        // ...but if a plain chord built on that bass fits almost as well, it is usually
-                        // the real one (Abm/B -> B, Am/F -> Fmaj7)
+                        // a plain chord built on that bass that fits almost as well (Abm/B -> B,
+                        // Am/F -> Fmaj7) is offered as the first alternative
                         val scores = avgScores(rs, re, chroma, bassN, energy, medEnergy, dia)
                         var bestOnBass = -1
                         for (i in VOCAB.indices) {
                             if (VOCAB[i].root != bassPc) continue
                             if (bestOnBass < 0 || scores[i] > scores[bestOnBass]) bestOnBass = i
                         }
-                        if (bestOnBass >= 0 && scores[bestOnBass] >= scores[idx] - 0.05) chord = VOCAB[bestOnBass]
+                        if (bestOnBass >= 0 && scores[bestOnBass] >= scores[idx] - 0.05) rerooted = VOCAB[bestOnBass]
                     }
                 }
-                out.add(segment(rs, re, chord, beats, chroma, bassN, energy, medEnergy, dia, idx))
+                var sg = segment(rs, re, chord, beats, chroma, bassN, energy, medEnergy, dia, idx)
+                rerooted?.let { r ->
+                    sg = sg.copy(alternatives = (listOf(r) + sg.alternatives.filter { it != r }).take(4))
+                }
+                out.add(sg)
             }
             b = e
         }

@@ -59,19 +59,19 @@ fun SongScreen(vm: AppViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 600
     val a = vm.analysis
-    Column(Modifier.fillMaxSize().background(Vintage.Paper)) {
+    Column(Modifier.fillMaxSize().background(Stage.Paper)) {
         // Top bar
         Row(
-            Modifier.fillMaxWidth().background(Vintage.Ink).statusBarsPadding()
+            Modifier.fillMaxWidth().background(Stage.Bar).statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = if (compact) 0.dp else 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { vm.closeSong() }, modifier = if (compact) Modifier.size(40.dp) else Modifier) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "חזרה", tint = Vintage.Paper)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "חזרה", tint = Stage.Ink)
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    vm.song?.title ?: "", style = MaterialTheme.typography.titleMedium, color = Vintage.Paper,
+                    vm.song?.title ?: "", style = MaterialTheme.typography.titleMedium, color = Stage.Ink,
                     maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
                 if (a != null) {
@@ -79,7 +79,7 @@ fun SongScreen(vm: AppViewModel) {
                     Text(
                         "סולם ${key.name()} · ${a.bpm.toInt()} BPM · ${a.beatsPerBar}/4" +
                             (if (vm.capo > 0) " · קאפו ${vm.capo}" else ""),
-                        style = MaterialTheme.typography.labelMedium, color = Vintage.Mustard
+                        style = MaterialTheme.typography.labelMedium, color = Stage.Mustard
                     )
                 }
             }
@@ -98,7 +98,7 @@ fun SongScreen(vm: AppViewModel) {
         }
         if (a != null) {
             NavigationBar(
-                containerColor = Vintage.Ink,
+                containerColor = Stage.Bar,
                 modifier = Modifier.height(if (compact) 50.dp else 64.dp),
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
             ) {
@@ -110,16 +110,16 @@ fun SongScreen(vm: AppViewModel) {
                         label = { Text(t.title, style = MaterialTheme.typography.labelMedium) },
                         alwaysShowLabel = !compact,
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Vintage.Ink,
-                            selectedTextColor = Vintage.Mustard,
-                            indicatorColor = Vintage.Mustard,
-                            unselectedIconColor = Vintage.PaperDark,
-                            unselectedTextColor = Vintage.PaperDark,
+                            selectedIconColor = Stage.Bar,
+                            selectedTextColor = Stage.Mustard,
+                            indicatorColor = Stage.Mustard,
+                            unselectedIconColor = Stage.InkSoft,
+                            unselectedTextColor = Stage.InkSoft,
                         )
                     )
                 }
             }
-            Spacer(Modifier.fillMaxWidth().background(Vintage.Ink).navigationBarsPadding())
+            Spacer(Modifier.fillMaxWidth().background(Stage.Bar).navigationBarsPadding())
         }
     }
 }
@@ -132,11 +132,11 @@ private fun AnalyzingView(progress: Float, text: String) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            Modifier.size(120.dp).clip(RoundedCornerShape(60.dp)).background(Vintage.Ink)
-                .border(6.dp, Vintage.Mustard, RoundedCornerShape(60.dp)),
+            Modifier.size(120.dp).clip(RoundedCornerShape(60.dp)).background(Stage.Bar)
+                .border(6.dp, Stage.Mustard, RoundedCornerShape(60.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.headlineMedium, color = Vintage.Mustard)
+            Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard)
         }
         Spacer(Modifier.height(20.dp))
         Text(text.ifBlank { "מכין…" }, style = MaterialTheme.typography.titleMedium)
@@ -144,12 +144,12 @@ private fun AnalyzingView(progress: Float, text: String) {
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            color = Vintage.Rust, trackColor = Vintage.PaperDark,
+            color = Stage.Rust, trackColor = Stage.PaperDark,
         )
         Spacer(Modifier.height(12.dp))
         Text(
             "הניתוח נעשה כולו בטלפון. בפעם הבאה שתפתח את השיר הוא ייפתח מיד.",
-            style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft, textAlign = TextAlign.Center
+            style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft, textAlign = TextAlign.Center
         )
     }
 }
@@ -163,7 +163,7 @@ private fun ErrorView(msg: String, onRetry: () -> Unit, onBack: () -> Unit) {
     ) {
         Text("לא הצלחתי לנתח את השיר", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        Text(msg, style = MaterialTheme.typography.bodyMedium, color = Vintage.InkSoft, textAlign = TextAlign.Center)
+        Text(msg, style = MaterialTheme.typography.bodyMedium, color = Stage.InkSoft, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = onRetry) { Text("נסה שוב") }
@@ -173,7 +173,7 @@ private fun ErrorView(msg: String, onRetry: () -> Unit, onBack: () -> Unit) {
 }
 
 @Composable
-fun Pill(text: String, bg: androidx.compose.ui.graphics.Color = Vintage.PaperDark, fg: androidx.compose.ui.graphics.Color = Vintage.Ink) {
+fun Pill(text: String, bg: androidx.compose.ui.graphics.Color = Stage.PaperDark, fg: androidx.compose.ui.graphics.Color = Stage.Ink) {
     Text(
         text, style = MaterialTheme.typography.labelMedium, color = fg,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)
@@ -183,8 +183,8 @@ fun Pill(text: String, bg: androidx.compose.ui.graphics.Color = Vintage.PaperDar
 @Composable
 fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(12.dp)).background(Vintage.Cream)
-            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(12.dp)).padding(12.dp)
+        modifier.clip(RoundedCornerShape(12.dp)).background(Stage.Cream)
+            .border(1.dp, Stage.PaperDark, RoundedCornerShape(12.dp)).padding(12.dp)
     ) { content() }
 }
 

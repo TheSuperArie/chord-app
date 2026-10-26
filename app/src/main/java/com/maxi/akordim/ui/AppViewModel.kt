@@ -81,7 +81,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var speed by mutableFloatStateOf(1f)
         private set
-    var pianoOn by mutableStateOf(true)
+    private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+    /** Show simplified chords (no slash bass, no 7ths/sus) instead of the full ones. */
+    var simpleChords by mutableStateOf(prefs.getBoolean("simple", false))
+        private set
     /** Bumped whenever guitar shapes for the current capo/transpose are ready. */
     var guitarVersion by mutableIntStateOf(0)
         private set
@@ -266,13 +269,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         position = player.currentPosition / 1000.0
         val seg = a.segmentAt(position)
         val beat = a.beatAt(position)
-        if (seg != segmentIndex) {
-            segmentIndex = seg
-            if (pianoOn && seg >= 0) {
-                val c = a.segments[seg].chord
-                if (!c.isNone) synth.chord(pianoMidis(c.transpose(transpose)))
-            }
-        }
+        if (seg != segmentIndex) segmentIndex = seg
         if (beat != beatIndex) {
             beatIndex = beat
             if (clickOn && beat >= 0) synth.click(a.isDownbeat(beat))
@@ -301,16 +298,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val spelling: Spelling get() = analysis?.key?.transpose(transpose)?.spelling ?: Spelling.COMMON
 
-    fun shown(c: Chord): Chord = c.transpose(transpose)
+    fun shown(c: Chord): Chord = c.transpose(transpose).let { if (simpleChords) simplify(it) else it }
+
+    fun toggleSimple() {
+        simpleChords = !simpleChords
+        prefs.edit().putBoolean("simple", simpleChords).apply()
+        warmGuitar()
+    }
+
+    /** Chords as shown (transposed / simplified), merged, longest first. */
+    fun usageShown(a: SongAnalysis): List<Pair<Chord, Double>> {
+        val m = LinkedHashMap<Chord, Double>()
+        for ((c, t) in a.chordUsage()) {
+            val k = shown(c)
+            m[k] = (m[k] ?: 0.0) + t
+        }
+        return m.entries.sortedByDescending { it.value }.map { it.key to it.value }
+    }
 
     /** Compute guitar shapes and the capo suggestion off the main thread. */
     fun warmGuitar() {
         val a = analysis ?: return
         guitarJob?.cancel()
-        val t = transpose
         val c = capo
         guitarJob = viewModelScope.launch(Dispatchers.Default) {
-            val usage = a.chordUsage().map { it.first.transpose(t) to it.second }
+            val usage = usageShown(a)
             for ((ch, _) in usage) Guitar.voicings(ch.transpose(-c))
             withContext(Dispatchers.Main) { guitarVersion++ }
             val sug = Guitar.suggestCapo(usage)
@@ -352,6 +364,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        fun simplify(c: Chord): Chord {
+            if (c.isNone) return c
+            val q = when (c.quality) {
+                com.maxi.akordim.music.Quality.SUS2, com.maxi.akordim.music.Quality.SUS4,
+                com.maxi.akordim.music.Quality.AUG -> com.maxi.akordim.music.Quality.MAJ
+                else -> c.quality.triad
+            }
+            return Chord(c.root, q)
+        }
+
         /** Bass in octave 2-3, chord tones from middle C upward. */
         fun pianoMidis(c: Chord): List<Int> {
             if (c.isNone) return emptyList()

@@ -54,9 +54,9 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
         Card(Modifier.fillMaxWidth()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    KeyBox("מקורי", orig.name(), orig.hebrewName(), Vintage.InkSoft)
-                    Text("←", style = MaterialTheme.typography.headlineMedium, color = Vintage.InkSoft, modifier = Modifier.padding(horizontal = 10.dp))
-                    KeyBox("עכשיו", now.name(), now.hebrewName(), Vintage.Rust)
+                    KeyBox("מקורי", orig.name(), orig.hebrewName(), Stage.InkSoft)
+                    Text("←", style = MaterialTheme.typography.headlineMedium, color = Stage.InkSoft, modifier = Modifier.padding(horizontal = 10.dp))
+                    KeyBox("עכשיו", now.name(), now.hebrewName(), Stage.Rust)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -68,7 +68,7 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
                     )
                     RoundButton(Icons.Filled.Add, "העלה") { vm.changeTranspose(vm.transpose + 1) }
                 }
-                Text("חצאי טונים", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                Text("חצאי טונים", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                 if (vm.transpose != 0) TextButton(onClick = { vm.changeTranspose(0) }) { Text("חזרה לסולם המקורי") }
             }
         }
@@ -80,12 +80,12 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
                         Text("לשנות גם את גובה השיר", style = MaterialTheme.typography.titleSmall)
                         Text(
                             "השיר יתנגן בסולם החדש, באותה מהירות",
-                            style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft
+                            style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                         )
                     }
                     Switch(
                         checked = vm.shiftAudio, onCheckedChange = { vm.changeShiftAudio(it) },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Vintage.Rust, checkedThumbColor = Vintage.Cream)
+                        colors = SwitchDefaults.colors(checkedTrackColor = Stage.Rust, checkedThumbColor = Stage.OnAccent)
                     )
                 }
                 Spacer(Modifier.height(10.dp))
@@ -106,15 +106,16 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 usage.forEach { (c, _) ->
                     val shown = vm.shown(c)
+                    if (vm.simpleChords && usage.firstOrNull { vm.shown(it.first) == shown }?.first != c) return@forEach
                     Column(
-                        Modifier.clip(RoundedCornerShape(8.dp)).background(Vintage.Cream)
-                            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(8.dp))
+                        Modifier.clip(RoundedCornerShape(8.dp)).background(Stage.Cream)
+                            .border(1.dp, Stage.PaperDark, RoundedCornerShape(8.dp))
                             .clickable { vm.playChordPreview(shown) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(shown.name(vm.spelling), style = MaterialTheme.typography.titleMedium, color = Vintage.Rust)
-                        if (vm.transpose != 0) Text(c.name(a.key.spelling), style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                        Text(shown.name(vm.spelling), style = MaterialTheme.typography.titleMedium, color = Stage.Rust)
+                        if (vm.transpose != 0) Text(c.name(a.key.spelling), style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                     }
                 }
             }
@@ -126,16 +127,16 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
 @Composable
 private fun KeyBox(label: String, name: String, heb: String, color: androidx.compose.ui.graphics.Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
         Text(name, style = MaterialTheme.typography.headlineMedium, color = color)
-        Text(heb, style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft)
+        Text(heb, style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft)
     }
 }
 
 @Composable
 fun RoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(48.dp).clip(CircleShape).background(Vintage.Ink).clickable(onClick = onClick),
+        Modifier.size(48.dp).clip(CircleShape).background(Stage.Bar).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Icon(icon, desc, tint = Vintage.Mustard) }
+    ) { Icon(icon, desc, tint = Stage.Mustard) }
 }

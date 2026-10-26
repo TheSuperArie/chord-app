@@ -43,7 +43,7 @@ private fun tempoName(bpm: Double) = when {
 
 @Composable
 fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
-    val usage = remember(a) { a.chordUsage() }
+    val usage = vm.usageShown(a)
     val totalChordTime = usage.sumOf { it.second }.coerceAtLeast(1e-6)
     val barsCount = remember(a) { bars(a).size }
     val avgConf = remember(a) {
@@ -92,9 +92,9 @@ fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
                 usage.forEach { (c, t) ->
                     val frac = (t / totalChordTime).toFloat()
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(vm.shown(c).name(sp), style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(70.dp))
-                        Box(Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(Vintage.PaperDark)) {
-                            Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).fillMaxHeight().background(Vintage.Mustard))
+                        Text(c.name(sp), style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(70.dp))
+                        Box(Modifier.weight(1f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(Stage.PaperDark)) {
+                            Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).fillMaxHeight().background(Stage.Mustard))
                         }
                         Text("${(frac * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp).padding(start = 6.dp))
                     }
@@ -106,11 +106,11 @@ fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
                 Text("על הניתוח", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "נותח בטלפון ב-${"%.1f".format(a.analysisMillis / 1000.0)} שניות · עוצמה ממוצעת ${"%.0f".format(a.loudnessDb)} dB",
-                    style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft
+                    style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                 )
                 Text(
                     "הזיהוי מדויק יותר בשירים עם כלי אחד או שניים. אם אקורד לא נכון, לחץ עליו במסך הנגן ובחר חלופה.",
-                    style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft
+                    style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                 )
                 Spacer(Modifier.height(6.dp))
                 OutlinedButton(onClick = { confirm = true }) { Text("לנתח מחדש") }
@@ -122,7 +122,7 @@ fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            containerColor = Vintage.Cream,
+            containerColor = Stage.Cream,
             title = { Text("לנתח את השיר מחדש?") },
             text = { Text(if (edits > 0) "התיקונים שעשית ($edits) יימחקו." else "הניתוח יתחיל מההתחלה.") },
             confirmButton = { TextButton(onClick = { confirm = false; vm.reanalyze() }) { Text("כן") } },
@@ -135,9 +135,9 @@ fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
 private fun Stat(modifier: Modifier, label: String, value: String, sub: String) {
     Card(modifier) {
         Column(Modifier.fillMaxWidth()) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = Vintage.InkSoft)
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = Vintage.Rust)
-            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Stage.InkSoft)
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = Stage.Rust)
+            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft)
         }
     }
 }

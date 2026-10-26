@@ -3,17 +3,17 @@
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
     <!-- vintage record -->
-    <path android:fillColor="#C8963E"
+    <path android:fillColor="#FF6B5A"
         android:pathData="M54,22a32,32 0,1 1,0 64a32,32 0,1 1,0 -64z" />
-    <path android:fillColor="#3B2A1A"
+    <path android:fillColor="#1E2040"
         android:pathData="M54,27a27,27 0,1 1,0 54a27,27 0,1 1,0 -54z" />
-    <path android:strokeColor="#5A4430" android:strokeWidth="1.2"
+    <path android:strokeColor="#3A3D6A" android:strokeWidth="1.2"
         android:pathData="M54,33a21,21 0,1 1,0 42a21,21 0,1 1,0 -42z" />
-    <path android:strokeColor="#5A4430" android:strokeWidth="1.2"
+    <path android:strokeColor="#3A3D6A" android:strokeWidth="1.2"
         android:pathData="M54,39a15,15 0,1 1,0 30a15,15 0,1 1,0 -30z" />
     <!-- eighth note -->
-    <path android:fillColor="#F3E9D2"
+    <path android:fillColor="#3DDBB3"
         android:pathData="M58,38 L58,62 A7,5.5 0,1 1,54.5 57.2 L54.5,38 Z" />
-    <path android:fillColor="#F3E9D2"
+    <path android:fillColor="#3DDBB3"
         android:pathData="M58,38 C64,40 68,44 66,51 C65,46 62,44 58,44 Z" />
 </vector>

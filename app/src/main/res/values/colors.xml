@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="paper">#F3E9D2</color>
-    <color name="ink">#3B2A1A</color>
-    <color name="mustard">#C8963E</color>
+    <color name="paper">#13142A</color>
+    <color name="ink">#0A0B1A</color>
+    <color name="mustard">#FF6B5A</color>
 </resources>

@@ -70,13 +70,13 @@ fun PianoKeyboard(
             val bw = w * 0.6f
             // white keys
             whites.forEachIndexed { i, m ->
-                val c = highlight[m] ?: Vintage.Cream
+                val c = highlight[m] ?: Stage.KeyWhite
                 drawRoundRect(
                     c, Offset(i * w + 1, 0f), Size(w - 2, size.height),
                     cornerRadius = CornerRadius(4f, 4f)
                 )
                 drawRoundRect(
-                    Vintage.InkSoft, Offset(i * w + 1, 0f), Size(w - 2, size.height),
+                    Stage.InkSoft, Offset(i * w + 1, 0f), Size(w - 2, size.height),
                     cornerRadius = CornerRadius(4f, 4f), style = Stroke(1f)
                 )
                 val pc = Notes.pc(m)
@@ -86,7 +86,7 @@ fun PianoKeyboard(
                         label,
                         TextStyle(
                             fontSize = 9.sp,
-                            color = if (highlight.containsKey(m)) Vintage.Ink else Vintage.InkSoft
+                            color = Stage.KeyBlack
                         )
                     )
                     drawText(tl, topLeft = Offset(i * w + (w - tl.size.width) / 2, size.height - tl.size.height - 4))
@@ -98,14 +98,14 @@ fun PianoKeyboard(
                 val left = whites.indexOf(m - 1)
                 if (left < 0) continue
                 val x = (left + 1) * w - bw / 2
-                val c = highlight[m] ?: Vintage.Ink
+                val c = highlight[m] ?: Stage.KeyBlack
                 drawRoundRect(c, Offset(x, 0f), Size(bw, bh), cornerRadius = CornerRadius(3f, 3f))
                 if (highlight.containsKey(m)) {
-                    drawRoundRect(Vintage.Ink, Offset(x, 0f), Size(bw, bh), cornerRadius = CornerRadius(3f, 3f), style = Stroke(1.5f))
+                    drawRoundRect(Stage.KeyBlack, Offset(x, 0f), Size(bw, bh), cornerRadius = CornerRadius(3f, 3f), style = Stroke(1.5f))
                 }
             }
             // felt strip on top, vintage piano style
-            drawRect(Vintage.Rust, Offset(0f, 0f), Size(size.width, 4f))
+            drawRect(Stage.Rust, Offset(0f, 0f), Size(size.width, 4f))
         }
     }
 }

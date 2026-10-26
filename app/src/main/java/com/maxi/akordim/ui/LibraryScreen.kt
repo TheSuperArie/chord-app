@@ -77,16 +77,16 @@ fun LibraryScreen(vm: AppViewModel) {
     }
     var query by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().background(Vintage.Paper)) {
+    Column(Modifier.fillMaxSize().background(Stage.Paper)) {
         // Header
         Column(
-            Modifier.fillMaxWidth().background(Vintage.Ink).statusBarsPadding()
+            Modifier.fillMaxWidth().background(Stage.Bar).statusBarsPadding()
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Vintage.Mustard)
+            Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard)
             Text(
                 "בוחרים שיר — והאקורדים, הסולם והקצב מופיעים. הכול בלי אינטרנט.",
-                style = MaterialTheme.typography.bodySmall, color = Vintage.PaperDark
+                style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
             )
         }
         LazyColumn(
@@ -121,8 +121,8 @@ fun LibraryScreen(vm: AppViewModel) {
             if (!hasPermission) {
                 item {
                     Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Vintage.Cream)
-                            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(10.dp)).padding(14.dp)
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Stage.Cream)
+                            .border(1.dp, Stage.PaperDark, RoundedCornerShape(10.dp)).padding(14.dp)
                     ) {
                         Text("כדי להציג את השירים שבטלפון צריך אישור גישה לקבצי מדיה.", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(8.dp))
@@ -148,7 +148,7 @@ fun LibraryScreen(vm: AppViewModel) {
                         Text(
                             if (query.isBlank()) "לא נמצאו קבצי שמע או וידאו בטלפון. אפשר לבחור קובץ בכפתור למעלה."
                             else "אין תוצאות לחיפוש",
-                            style = MaterialTheme.typography.bodyMedium, color = Vintage.InkSoft,
+                            style = MaterialTheme.typography.bodyMedium, color = Stage.InkSoft,
                             modifier = Modifier.padding(8.dp)
                         )
                     }
@@ -170,32 +170,32 @@ fun LibraryScreen(vm: AppViewModel) {
 @Composable
 private fun SectionTitle(icon: ImageVector, text: String) {
     Row(Modifier.padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Vintage.Rust, modifier = Modifier.size(18.dp))
+        Icon(icon, null, tint = Stage.Rust, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text(text, style = MaterialTheme.typography.titleSmall, color = Vintage.Ink)
+        Text(text, style = MaterialTheme.typography.titleSmall, color = Stage.Ink)
     }
 }
 
 @Composable
 private fun SongRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Vintage.Cream)
-            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(10.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Stage.Cream)
+            .border(1.dp, Stage.PaperDark, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            Modifier.size(36.dp).clip(CircleShape).background(Vintage.Ink),
+            Modifier.size(36.dp).clip(CircleShape).background(Stage.Bar),
             contentAlignment = Alignment.Center
-        ) { Icon(icon, null, tint = Vintage.Mustard, modifier = Modifier.size(20.dp)) }
+        ) { Icon(icon, null, tint = Stage.Mustard, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft, maxLines = 1)
+            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft, maxLines = 1)
         }
         if (onRemove != null) {
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.Close, "הסר", tint = Vintage.InkSoft, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Close, "הסר", tint = Stage.InkSoft, modifier = Modifier.size(16.dp))
             }
         }
     }

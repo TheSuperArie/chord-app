@@ -2,7 +2,7 @@ package com.maxi.akordim.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -10,19 +10,24 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-object Vintage {
-    val Paper = Color(0xFFF3E9D2)
-    val PaperDark = Color(0xFFE6D6B4)
-    val Cream = Color(0xFFFBF6EA)
-    val Ink = Color(0xFF3B2A1A)
-    val InkSoft = Color(0xFF7A6248)
-    val Mustard = Color(0xFFC8963E)
-    val Rust = Color(0xFFA4462B)
-    val Olive = Color(0xFF6B7F3A)
-    val Teal = Color(0xFF3F6E6A)
+/** "Night stage" palette: deep indigo, coral for what is playing, mint for highlights. */
+object Stage {
+    val Paper = Color(0xFF13142A)      // screen background
+    val PaperDark = Color(0xFF2B2E52)  // borders, tracks, secondary surfaces
+    val Cream = Color(0xFF1E2040)      // cards
+    val Bar = Color(0xFF0A0B1A)        // top / bottom bars
+    val Ink = Color(0xFFEEEDFF)        // main text
+    val InkSoft = Color(0xFF9C9FCB)    // secondary text
+    val Mustard = Color(0xFF3DDBB3)    // mint highlight
+    val Rust = Color(0xFFFF6B5A)       // coral accent
+    val Olive = Color(0xFF8BE07B)
+    val Teal = Color(0xFF7DB2FF)       // chords you edited
+    val OnAccent = Color(0xFF14101C)
+    val KeyWhite = Color(0xFFF4F3FF)
+    val KeyBlack = Color(0xFF0A0B1A)
 }
 
-private val Serif = FontFamily.Serif
+private val Serif = FontFamily.SansSerif
 
 private val typography = Typography(
     displayLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Bold, fontSize = 56.sp),
@@ -42,28 +47,28 @@ private val typography = Typography(
 @Composable
 fun AkordimTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Vintage.Rust,
-            onPrimary = Vintage.Cream,
-            primaryContainer = Vintage.Mustard,
-            onPrimaryContainer = Vintage.Ink,
-            secondary = Vintage.Olive,
-            onSecondary = Vintage.Cream,
-            secondaryContainer = Vintage.PaperDark,
-            onSecondaryContainer = Vintage.Ink,
-            tertiary = Vintage.Teal,
-            background = Vintage.Paper,
-            onBackground = Vintage.Ink,
-            surface = Vintage.Cream,
-            onSurface = Vintage.Ink,
-            surfaceVariant = Vintage.PaperDark,
-            onSurfaceVariant = Vintage.InkSoft,
-            surfaceContainer = Vintage.PaperDark,
-            surfaceContainerHigh = Vintage.Cream,
-            surfaceContainerHighest = Vintage.Cream,
-            surfaceContainerLow = Vintage.Paper,
-            outline = Vintage.InkSoft,
-            outlineVariant = Vintage.PaperDark,
+        colorScheme = darkColorScheme(
+            primary = Stage.Rust,
+            onPrimary = Stage.OnAccent,
+            primaryContainer = Stage.Mustard,
+            onPrimaryContainer = Stage.OnAccent,
+            secondary = Stage.Olive,
+            onSecondary = Stage.OnAccent,
+            secondaryContainer = Stage.PaperDark,
+            onSecondaryContainer = Stage.Ink,
+            tertiary = Stage.Teal,
+            background = Stage.Paper,
+            onBackground = Stage.Ink,
+            surface = Stage.Cream,
+            onSurface = Stage.Ink,
+            surfaceVariant = Stage.PaperDark,
+            onSurfaceVariant = Stage.InkSoft,
+            surfaceContainer = Stage.Cream,
+            surfaceContainerHigh = Stage.Cream,
+            surfaceContainerHighest = Stage.Cream,
+            surfaceContainerLow = Stage.Paper,
+            outline = Stage.InkSoft,
+            outlineVariant = Stage.PaperDark,
         ),
         typography = typography,
         content = content,

@@ -63,14 +63,14 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Vintage.Cream,
+        containerColor = Stage.Cream,
         title = {
             Column {
-                Text("החלפת אקורד · ${formatTime(seg.start)}", style = MaterialTheme.typography.labelMedium, color = Vintage.InkSoft)
+                Text("החלפת אקורד · ${formatTime(seg.start)}", style = MaterialTheme.typography.labelMedium, color = Stage.InkSoft)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(current.name(sp), style = MaterialTheme.typography.headlineMedium, color = Vintage.Rust)
+                    Text(current.name(sp), style = MaterialTheme.typography.headlineMedium, color = Stage.Rust)
                     Spacer(Modifier.width(8.dp))
-                    Text("ביטחון ${(seg.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                    Text("ביטחון ${(seg.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                 }
             }
         },
@@ -78,20 +78,20 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text("אולי זה:", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(6.dp))
-                seg.alternatives.take(4).forEach { alt ->
+                seg.alternatives.distinctBy { vm.shown(it) }.filter { vm.shown(it) != current }.take(4).forEach { alt ->
                     val shown = vm.shown(alt)
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(8.dp))
-                            .background(Vintage.Paper).border(1.dp, Vintage.PaperDark, RoundedCornerShape(8.dp))
+                            .background(Stage.Paper).border(1.dp, Stage.PaperDark, RoundedCornerShape(8.dp))
                             .clickable { apply(alt) }.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(shown.name(sp), style = MaterialTheme.typography.titleLarge)
-                            Text(shown.hebrewName(sp), style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft)
+                            Text(shown.hebrewName(sp), style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft)
                         }
                         IconButton(onClick = { vm.playChordPreview(shown) }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Vintage.Rust)
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Stage.Rust)
                         }
                     }
                 }
@@ -99,7 +99,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { everywhere = !everywhere }) {
                         Checkbox(
                             checked = everywhere, onCheckedChange = { everywhere = it },
-                            colors = CheckboxDefaults.colors(checkedColor = Vintage.Rust)
+                            colors = CheckboxDefaults.colors(checkedColor = Stage.Rust)
                         )
                         Text("להחליף בכל ${count} המקומות בשיר", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -156,9 +156,9 @@ private fun ManualPicker(vm: AppViewModel, start: Chord, onPick: (Chord) -> Unit
         val picked = Chord(root, quality, bass)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(picked.name(sp), style = MaterialTheme.typography.titleLarge, color = Vintage.Rust, modifier = Modifier.weight(1f))
+            Text(picked.name(sp), style = MaterialTheme.typography.titleLarge, color = Stage.Rust, modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.playChordPreview(picked) }) {
-                Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Vintage.Rust)
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Stage.Rust)
             }
             TextButton(onClick = { onPick(picked.transpose(-vm.transpose)) }) { Text("בחר") }
         }
@@ -170,10 +170,10 @@ fun Choice(text: String, selected: Boolean, onClick: () -> Unit) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
-        color = if (selected) Vintage.Cream else Vintage.Ink,
+        color = if (selected) Stage.OnAccent else Stage.Ink,
         modifier = Modifier.clip(RoundedCornerShape(6.dp))
-            .background(if (selected) Vintage.Rust else Vintage.Paper)
-            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(6.dp))
+            .background(if (selected) Stage.Rust else Stage.Paper)
+            .border(1.dp, Stage.PaperDark, RoundedCornerShape(6.dp))
             .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp)
     )
 }

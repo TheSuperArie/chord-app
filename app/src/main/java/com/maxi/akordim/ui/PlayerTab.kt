@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward5
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.Timer
@@ -103,38 +102,38 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
     Column(Modifier.fillMaxSize()) {
         // ---- now playing
         Row(
-            Modifier.fillMaxWidth().background(Vintage.PaperDark)
+            Modifier.fillMaxWidth().background(Stage.PaperDark)
                 .padding(horizontal = 12.dp, vertical = if (compact) 3.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(enabled = seg >= 0) { dialogSeg = seg },
             ) {
-                if (!compact) Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                if (!compact) Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                 Text(
                     cur?.let { vm.shown(it.chord).name(sp) } ?: "—",
                     style = MaterialTheme.typography.displayLarge.copy(fontSize = if (compact) 32.sp else 46.sp),
-                    color = Vintage.Rust, maxLines = 1,
+                    color = Stage.Rust, maxLines = 1,
                 )
                 Text(
                     cur?.let { vm.shown(it.chord).hebrewName(sp) } ?: "לחץ ▶ כדי להתחיל",
-                    style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft, maxLines = 1
+                    style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft, maxLines = 1
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("הבא ", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                    Text("הבא ", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                     Text(
                         next?.let { vm.shown(it.chord).name(sp) } ?: "",
                         style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
-                        color = Vintage.Ink
+                        color = Stage.Ink
                     )
                 }
                 Spacer(Modifier.height(if (compact) 3.dp else 6.dp))
                 BeatDots(a, vm.beatIndex)
                 if (compact) {
                     Row {
-                        MiniToggle(Icons.Filled.Piano, "פסנתר", vm.pianoOn) { vm.pianoOn = !vm.pianoOn }
+                        SimpleChip(vm)
                         MiniToggle(Icons.Filled.Timer, "קליק", vm.clickOn) { vm.clickOn = !vm.clickOn }
                     }
                 }
@@ -171,10 +170,10 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
         val chord = cur?.let { vm.shown(it.chord) }
         val hl = HashMap<Int, Color>()
         if (chord != null && !chord.isNone) {
-            hl[48 + chord.bassNote] = Vintage.Rust
-            chord.pitchClasses.forEach { hl[60 + it] = Vintage.Mustard }
+            hl[48 + chord.bassNote] = Stage.Rust
+            chord.pitchClasses.forEach { hl[60 + it] = Stage.Mustard }
         }
-        Box(Modifier.background(Vintage.Ink).padding(horizontal = 4.dp, vertical = if (compact) 2.dp else 4.dp)) {
+        Box(Modifier.background(Stage.Bar).padding(horizontal = 4.dp, vertical = if (compact) 2.dp else 4.dp)) {
             PianoKeyboard(48, 71, hl, sp, height = if (compact) 56.dp else 84.dp) { m -> vm.synth.note(m) }
         }
     }
@@ -193,8 +192,8 @@ private fun BeatDots(a: SongAnalysis, beat: Int) {
                 val on = i == inBar
                 Box(
                     Modifier.size(if (i == 0) 12.dp else 9.dp).clip(CircleShape)
-                        .background(if (on) (if (i == 0) Vintage.Rust else Vintage.Mustard) else Vintage.Cream)
-                        .border(1.dp, Vintage.InkSoft, CircleShape)
+                        .background(if (on) (if (i == 0) Stage.Rust else Stage.Mustard) else Stage.Cream)
+                        .border(1.dp, Stage.InkSoft, CircleShape)
                 )
             }
         }
@@ -208,8 +207,8 @@ private fun BarCell(
     val playingHere = vm.beatIndex in bar
     Row(
         modifier.fillMaxHeight().padding(horizontal = 2.dp).clip(RoundedCornerShape(6.dp))
-            .background(if (playingHere) Vintage.Cream else Vintage.Paper)
-            .border(1.dp, if (playingHere) Vintage.Mustard else Vintage.PaperDark, RoundedCornerShape(6.dp))
+            .background(if (playingHere) Stage.Cream else Stage.Paper)
+            .border(1.dp, if (playingHere) Stage.Mustard else Stage.PaperDark, RoundedCornerShape(6.dp))
     ) {
         bar.forEachIndexed { i, b ->
             val s = b2s.getOrElse(b) { -1 }
@@ -219,11 +218,11 @@ private fun BarCell(
             val edited = s >= 0 && a.segments[s].chord != a.segments[s].detected
             Box(
                 Modifier.weight(1f).fillMaxHeight()
-                    .background(if (isNow) Vintage.Mustard.copy(alpha = 0.55f) else Color.Transparent)
+                    .background(if (isNow) Stage.Mustard.copy(alpha = 0.55f) else Color.Transparent)
                     .clickable(enabled = s >= 0) { onChord(s) },
                 contentAlignment = Alignment.CenterStart
             ) {
-                if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight(0.4f).background(Vintage.PaperDark).align(Alignment.CenterStart))
+                if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight(0.4f).background(Stage.PaperDark).align(Alignment.CenterStart))
                 if (s >= 0 && showName) {
                     val c = vm.shown(a.segments[s].chord)
                     Text(
@@ -231,9 +230,9 @@ private fun BarCell(
                         fontSize = if (c.hasSlash || c.quality.suffix.length > 2) 11.sp else 14.sp,
                         fontWeight = if (startsHere) FontWeight.Bold else FontWeight.Normal,
                         color = when {
-                            edited -> Vintage.Teal
-                            startsHere -> Vintage.Ink
-                            else -> Vintage.InkSoft.copy(alpha = 0.6f)
+                            edited -> Stage.Teal
+                            startsHere -> Stage.Ink
+                            else -> Stage.InkSoft.copy(alpha = 0.6f)
                         },
                         maxLines = 1, softWrap = false,
                         modifier = Modifier.padding(start = 3.dp),
@@ -251,7 +250,7 @@ private fun BarCell(
 private fun Transport(vm: AppViewModel, a: SongAnalysis) {
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
-    Column(Modifier.fillMaxWidth().background(Vintage.Paper).padding(horizontal = 10.dp)) {
+    Column(Modifier.fillMaxWidth().background(Stage.Paper).padding(horizontal = 10.dp)) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(formatTime(if (dragging) dragValue.toDouble() else vm.position), style = MaterialTheme.typography.labelSmall)
@@ -262,7 +261,7 @@ private fun Transport(vm: AppViewModel, a: SongAnalysis) {
                     valueRange = 0f..a.durationSec.toFloat().coerceAtLeast(1f),
                     modifier = Modifier.weight(1f).padding(horizontal = 6.dp).height(30.dp),
                     colors = SliderDefaults.colors(
-                        thumbColor = Vintage.Rust, activeTrackColor = Vintage.Rust, inactiveTrackColor = Vintage.PaperDark
+                        thumbColor = Stage.Rust, activeTrackColor = Stage.Rust, inactiveTrackColor = Stage.PaperDark
                     )
                 )
                 Text(formatTime(a.durationSec), style = MaterialTheme.typography.labelSmall)
@@ -272,15 +271,15 @@ private fun Transport(vm: AppViewModel, a: SongAnalysis) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ToggleChip("פסנתר", Icons.Filled.Piano, vm.pianoOn) { vm.pianoOn = !vm.pianoOn }
+                SimpleChip(vm)
                 IconButton(onClick = { vm.skip(-5.0) }) { Icon(Icons.Filled.Replay5, "אחורה") }
                 Box(
-                    Modifier.size(50.dp).clip(CircleShape).background(Vintage.Rust).clickable { vm.togglePlay() },
+                    Modifier.size(50.dp).clip(CircleShape).background(Stage.Rust).clickable { vm.togglePlay() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         if (vm.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        if (vm.isPlaying) "השהה" else "נגן", tint = Vintage.Cream, modifier = Modifier.size(30.dp)
+                        if (vm.isPlaying) "השהה" else "נגן", tint = Stage.OnAccent, modifier = Modifier.size(30.dp)
                     )
                 }
                 IconButton(onClick = { vm.skip(5.0) }) { Icon(Icons.Filled.Forward5, "קדימה") }
@@ -297,20 +296,20 @@ private fun CompactTransport(vm: AppViewModel, a: SongAnalysis) {
     var dragValue by remember { mutableFloatStateOf(0f) }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(
-            Modifier.fillMaxWidth().background(Vintage.Paper).padding(horizontal = 8.dp, vertical = 3.dp),
+            Modifier.fillMaxWidth().background(Stage.Paper).padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(Vintage.Rust).clickable { vm.togglePlay() },
+                Modifier.size(40.dp).clip(CircleShape).background(Stage.Rust).clickable { vm.togglePlay() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     if (vm.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    if (vm.isPlaying) "השהה" else "נגן", tint = Vintage.Cream, modifier = Modifier.size(26.dp)
+                    if (vm.isPlaying) "השהה" else "נגן", tint = Stage.OnAccent, modifier = Modifier.size(26.dp)
                 )
             }
             Icon(
-                Icons.Filled.Replay5, "אחורה", tint = Vintage.Ink,
+                Icons.Filled.Replay5, "אחורה", tint = Stage.Ink,
                 modifier = Modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).clickable { vm.skip(-5.0) }
             )
             Text(
@@ -324,7 +323,7 @@ private fun CompactTransport(vm: AppViewModel, a: SongAnalysis) {
                 valueRange = 0f..a.durationSec.toFloat().coerceAtLeast(1f),
                 modifier = Modifier.weight(1f).padding(horizontal = 4.dp).height(28.dp),
                 colors = SliderDefaults.colors(
-                    thumbColor = Vintage.Rust, activeTrackColor = Vintage.Rust, inactiveTrackColor = Vintage.PaperDark
+                    thumbColor = Stage.Rust, activeTrackColor = Stage.Rust, inactiveTrackColor = Stage.PaperDark
                 )
             )
             Text(formatTime(a.durationSec), style = MaterialTheme.typography.labelSmall)
@@ -332,11 +331,27 @@ private fun CompactTransport(vm: AppViewModel, a: SongAnalysis) {
     }
 }
 
+/** Small switch between full chords (Am7/G) and simple ones (Am). */
+@Composable
+private fun SimpleChip(vm: AppViewModel) {
+    val on = vm.simpleChords
+    Text(
+        if (on) "פשוט" else "מלא",
+        style = MaterialTheme.typography.labelSmall,
+        color = if (on) Stage.OnAccent else Stage.InkSoft,
+        modifier = Modifier.padding(horizontal = 3.dp).clip(RoundedCornerShape(50))
+            .background(if (on) Stage.Mustard else Stage.Paper)
+            .border(1.dp, if (on) Stage.Mustard else Stage.PaperDark, RoundedCornerShape(50))
+            .clickable { vm.toggleSimple() }
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    )
+}
+
 @Composable
 private fun MiniToggle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
     Icon(
         icon, label,
-        tint = if (on) Vintage.Rust else Vintage.InkSoft.copy(alpha = 0.45f),
+        tint = if (on) Stage.Rust else Stage.InkSoft.copy(alpha = 0.45f),
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onClick)
     )
 }
@@ -347,8 +362,8 @@ fun ToggleChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVec
         Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 6.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, label, tint = if (on) Vintage.Rust else Vintage.InkSoft.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = if (on) Vintage.Ink else Vintage.InkSoft.copy(alpha = 0.6f))
+        Icon(icon, label, tint = if (on) Stage.Rust else Stage.InkSoft.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = if (on) Stage.Ink else Stage.InkSoft.copy(alpha = 0.6f))
     }
 }
 
