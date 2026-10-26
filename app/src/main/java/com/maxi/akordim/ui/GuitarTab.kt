@@ -52,7 +52,8 @@ import com.maxi.akordim.music.Voicing
 fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
     val usage = remember(a) { a.chordUsage() }
     val shownUsage = usage.map { vm.shown(it.first) to it.second }
-    val suggested = remember(a, vm.transpose) { Guitar.suggestCapo(shownUsage) }
+    @Suppress("UNUSED_VARIABLE") val ready = vm.guitarVersion // recompose when shapes are ready
+    val suggested = vm.suggestedCapo
     val choice = remember { mutableStateMapOf<Chord, Int>() } // shape chord -> voicing index
     val sp = vm.spelling
     val shapeSpelling = a.key.transpose(vm.transpose - vm.capo).spelling
@@ -79,7 +80,7 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
                         for (c in 0..9) Choice(if (c == 0) "בלי" else "$c", vm.capo == c) { vm.changeCapo(c) }
                     }
                 }
-                if (suggested != vm.capo) {
+                if (suggested >= 0 && suggested != vm.capo) {
                     Row(
                         Modifier.clip(RoundedCornerShape(8.dp)).background(Vintage.Olive.copy(alpha = 0.15f))
                             .clickable { vm.changeCapo(suggested) }.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -109,7 +110,7 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Vintage.PaperDark)
                             Text(curShape.name(shapeSpelling), style = MaterialTheme.typography.headlineSmall, color = Vintage.Mustard)
-                            Guitar.voicings(curShape).getOrNull(choice[curShape] ?: 0)?.let {
+                            Guitar.cached(curShape)?.getOrNull(choice[curShape] ?: 0)?.let {
                                 ChordDiagram(it, 110.dp, dark = true)
                             }
                         }
@@ -118,7 +119,7 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("הבא", style = MaterialTheme.typography.labelSmall, color = Vintage.PaperDark)
                                 Text(nextShape.name(shapeSpelling), style = MaterialTheme.typography.titleMedium, color = Vintage.PaperDark)
-                                Guitar.voicings(nextShape).getOrNull(choice[nextShape] ?: 0)?.let {
+                                Guitar.cached(nextShape)?.getOrNull(choice[nextShape] ?: 0)?.let {
                                     ChordDiagram(it, 80.dp, dark = true)
                                 }
                             }
@@ -134,7 +135,7 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
         }
         items(shownUsage, key = { it.first.encode() }) { (sounding, _) ->
             val shape = sounding.transpose(-vm.capo)
-            val voicings = Guitar.voicings(shape)
+            val voicings = Guitar.cached(shape) ?: emptyList()
             val idx = (choice[shape] ?: 0).coerceAtMost((voicings.size - 1).coerceAtLeast(0))
             val playing = current == sounding
             Column(
@@ -151,7 +152,7 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
                 Text(shape.name(shapeSpelling), style = MaterialTheme.typography.titleMedium, color = Vintage.Ink, maxLines = 1)
                 if (vm.capo > 0) Text("נשמע ${sounding.name(sp)}", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
                 voicings.getOrNull(idx)?.let { ChordDiagram(it, 92.dp, dark = false) }
-                    ?: Text("אין צורה", style = MaterialTheme.typography.bodySmall)
+                    ?: Text(if (Guitar.cached(shape) == null) "מחשב…" else "אין צורה", style = MaterialTheme.typography.bodySmall)
                 if (voicings.size > 1) Text("${idx + 1}/${voicings.size}", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
             }
         }

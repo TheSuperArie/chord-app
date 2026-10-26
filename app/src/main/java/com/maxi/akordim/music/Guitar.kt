@@ -21,14 +21,17 @@ object Guitar {
 
     private val cache = HashMap<Chord, List<Voicing>>()
 
-    @Synchronized
     fun voicings(chord: Chord, count: Int = 4): List<Voicing> {
         if (chord.isNone) return emptyList()
-        cache[chord]?.let { return it.take(count) }
-        val all = search(chord)
-        cache[chord] = all.take(8)
+        synchronized(cache) { cache[chord] }?.let { return it.take(count) }
+        // search outside the lock so the UI can keep reading the cache meanwhile
+        val all = search(chord).take(8)
+        synchronized(cache) { cache[chord] = all }
         return all.take(count)
     }
+
+    /** Shapes if already computed, otherwise null (never blocks). */
+    fun cached(chord: Chord): List<Voicing>? = if (chord.isNone) emptyList() else synchronized(cache) { cache[chord] }
 
     /** Ease of playing the chord in its easiest shape (lower = easier). */
     fun difficulty(chord: Chord): Double = maxOf(-2.0, voicings(chord, 1).firstOrNull()?.difficulty ?: 20.0)

@@ -82,6 +82,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var speed by mutableFloatStateOf(1f)
         private set
     var pianoOn by mutableStateOf(true)
+    /** Bumped whenever guitar shapes for the current capo/transpose are ready. */
+    var guitarVersion by mutableIntStateOf(0)
+        private set
+    var suggestedCapo by mutableIntStateOf(-1)
+        private set
+    private var guitarJob: Job? = null
     var clickOn by mutableStateOf(false)
 
     private var analysisJob: Job? = null
@@ -157,6 +163,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (cached != null) {
             analysis = cached
             saveRecent()
+            warmGuitar()
         } else analyze(uri, key)
     }
 
@@ -188,6 +195,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         analysis = result
                         busy = false
                         saveRecent()
+                        warmGuitar()
                     }
                 }
             } catch (e: AudioDecoder.DecodeException) {
@@ -280,6 +288,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         transpose = t
         applyPlaybackParams()
         saveRecent()
+        warmGuitar()
     }
 
     fun changeShiftAudio(on: Boolean) {
@@ -287,12 +296,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun changeCapo(c: Int) {
-        capo = c; saveRecent()
+        capo = c; saveRecent(); warmGuitar()
     }
 
     val spelling: Spelling get() = analysis?.key?.transpose(transpose)?.spelling ?: Spelling.COMMON
 
     fun shown(c: Chord): Chord = c.transpose(transpose)
+
+    /** Compute guitar shapes and the capo suggestion off the main thread. */
+    fun warmGuitar() {
+        val a = analysis ?: return
+        guitarJob?.cancel()
+        val t = transpose
+        val c = capo
+        guitarJob = viewModelScope.launch(Dispatchers.Default) {
+            val usage = a.chordUsage().map { it.first.transpose(t) to it.second }
+            for ((ch, _) in usage) Guitar.voicings(ch.transpose(-c))
+            withContext(Dispatchers.Main) { guitarVersion++ }
+            val sug = Guitar.suggestCapo(usage)
+            withContext(Dispatchers.Main) { suggestedCapo = sug; guitarVersion++ }
+        }
+    }
 
     // ------------------------------------------------------------ editing chords
 
@@ -314,6 +338,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun updateSegments(a: SongAnalysis, segs: List<com.maxi.akordim.analysis.ChordSegment>) {
         val updated = a.copy(segments = segs)
         analysis = updated
+        warmGuitar()
         song?.let { s -> viewModelScope.launch(Dispatchers.IO) { store.saveAnalysis(s.key, updated) } }
     }
 
