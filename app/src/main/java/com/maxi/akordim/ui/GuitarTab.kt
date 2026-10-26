@@ -125,6 +125,8 @@ fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
                         }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                StrumCard(vm, a)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "כל האקורדים בשיר (לחיצה על אקורד מחליפה לצורת נגינה אחרת)",
@@ -219,3 +221,55 @@ fun ChordDiagram(v: Voicing, width: Dp, dark: Boolean) {
     }
 }
 
+
+
+/** Suggested strumming / picking patterns, with the current eighth-note lit while playing. */
+@Composable
+private fun StrumCard(vm: AppViewModel, a: SongAnalysis) {
+    val patterns = remember(a) { com.maxi.akordim.analysis.Strum.suggest(a.beatsPerBar, a.bpm) }
+    val pat = patterns[vm.strumIndex.coerceIn(0, patterns.size - 1)]
+    // which eighth of the bar is sounding now
+    val b = vm.beatIndex
+    val slot = if (b >= a.downbeatPhase && b + 1 < a.beats.size) {
+        val inBar = (b - a.downbeatPhase) % a.beatsPerBar
+        val frac = (vm.position - a.beats[b]) / (a.beats[b + 1] - a.beats[b])
+        inBar * 2 + if (frac >= 0.5) 1 else 0
+    } else -1
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Stage.Cream)
+            .border(1.dp, Stage.PaperDark, RoundedCornerShape(12.dp)).padding(10.dp)
+    ) {
+        Text("מקצב פריטה מומלץ · ${a.bpm.toInt()} BPM", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            patterns.forEachIndexed { i, p -> Choice(p.name, i == vm.strumIndex) { vm.strumIndex = i } }
+        }
+        Spacer(Modifier.height(8.dp))
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxWidth()) {
+                pat.steps.forEachIndexed { i, st ->
+                    val on = vm.isPlaying && i == slot
+                    val txt = when (st) {
+                        "D" -> "↓"; "U" -> "↑"; "-" -> "·"; "B" -> "בס"; else -> st
+                    }
+                    Column(
+                        Modifier.weight(1f).padding(1.dp).clip(RoundedCornerShape(6.dp))
+                            .background(if (on) Stage.Mustard else if (i % 2 == 0) Stage.PaperDark.copy(alpha = 0.6f) else Color.Transparent),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            txt, style = MaterialTheme.typography.titleLarge,
+                            color = if (on) Stage.OnAccent else if (st == "-") Stage.InkSoft else Stage.Ink
+                        )
+                        Text(
+                            if (i % 2 == 0) "${i / 2 + 1}" else "ו", style = MaterialTheme.typography.labelSmall,
+                            color = if (on) Stage.OnAccent else Stage.InkSoft
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(pat.tip, style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft)
+    }
+}

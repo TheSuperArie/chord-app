@@ -104,6 +104,10 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
                         Text("להחליף בכל ${count} המקומות בשיר", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+                Row {
+                    TextButton(onClick = { vm.markLoopStart(seg.start); onDismiss() }) { Text("↻ תחילת לופ כאן") }
+                    if (vm.loopMark >= 0) TextButton(onClick = { vm.markLoopEnd(seg.end); if (!vm.isPlaying) vm.togglePlay(); onDismiss() }) { Text("סוף לופ כאן") }
+                }
                 TextButton(onClick = { manual = !manual }) {
                     Text(if (manual) "הסתר בחירה ידנית" else "אקורד אחר… (בחירה ידנית)")
                 }

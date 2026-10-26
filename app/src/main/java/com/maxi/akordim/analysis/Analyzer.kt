@@ -162,6 +162,12 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
         progress(0.9f, "מזהה בס")
         val segments = buildSegments(path, processed, beatBass, bassNorm, beatEnergy, medEnergy, beats, key)
+        progress(0.95f, "מזהה בית ופזמון")
+        val sections = try {
+            SectionFinder.find(processed, path, beatEnergy, beats, bpb, phase)
+        } catch (e: Exception) {
+            emptyList()
+        }
 
         progress(1f, "מוכן")
         return SongAnalysis(
@@ -174,6 +180,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             keyConfidence = keyConf,
             tuningCents = tuning,
             segments = segments,
+            sections = sections,
             tempoStability = stability,
             loudnessDb = loudnessDb,
             analysisMillis = System.currentTimeMillis() - t0,

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,7 +84,18 @@ fun LibraryScreen(vm: AppViewModel) {
             Modifier.fillMaxWidth().background(Stage.Bar).statusBarsPadding()
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard, modifier = Modifier.weight(1f))
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Stage.Cream).clickable { vm.showTools = true }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Tune, null, tint = Stage.Mustard, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("מכוון וכלים", style = MaterialTheme.typography.labelLarge, color = Stage.Ink)
+                }
+            }
             Text(
                 "בוחרים שיר — והאקורדים, הסולם והקצב מופיעים. הכול בלי אינטרנט.",
                 style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft

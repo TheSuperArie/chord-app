@@ -91,6 +91,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var suggestedCapo by mutableIntStateOf(-1)
         private set
     private var guitarJob: Job? = null
+
+    // loop (seconds, -1 = off)
+    var loopStart by mutableDoubleStateOf(-1.0)
+        private set
+    var loopEnd by mutableDoubleStateOf(-1.0)
+        private set
+    var loopLabel by mutableStateOf("")
+        private set
+    var stageMode by mutableStateOf(false)
+    var showTools by mutableStateOf(false)
+    var showSheet by mutableStateOf(false)
+
+    // the singer's range, remembered between songs (MIDI, -1 = unknown)
+    var voiceLow by mutableIntStateOf(prefs.getInt("voiceLow", -1))
+        private set
+    var voiceHigh by mutableIntStateOf(prefs.getInt("voiceHigh", -1))
+        private set
+    var strumIndex by mutableIntStateOf(0)
     var clickOn by mutableStateOf(false)
 
     private var analysisJob: Job? = null
@@ -226,6 +244,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         segmentIndex = -1
         beatIndex = -1
         error = null
+        clearLoop()
+        stageMode = false
+        showSheet = false
         refreshRecents()
     }
 
@@ -267,6 +288,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val a = analysis ?: return
         if (!player.isPlaying) return
         position = player.currentPosition / 1000.0
+        if (loopEnd > 0 && (position >= loopEnd || position < loopStart - 0.5)) {
+            seekTo(loopStart)
+            return
+        }
         val seg = a.segmentAt(position)
         val beat = a.beatAt(position)
         if (seg != segmentIndex) segmentIndex = seg
@@ -330,6 +355,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ------------------------------------------------------------ loop / sections
+
+    fun setLoop(start: Double, end: Double, label: String) {
+        loopStart = minOf(start, end); loopEnd = maxOf(start, end); loopLabel = label
+        if (position < loopStart || position > loopEnd) seekTo(loopStart)
+    }
+
+    fun clearLoop() {
+        loopStart = -1.0; loopEnd = -1.0; loopLabel = ""
+    }
+
+    /** First tap marks where the loop starts, the second where it ends. */
+    var loopMark by mutableDoubleStateOf(-1.0)
+        private set
+
+    fun markLoopStart(t: Double) {
+        loopMark = t
+    }
+
+    fun markLoopEnd(t: Double) {
+        if (loopMark >= 0) {
+            setLoop(loopMark, t, "${formatTimeVm(minOf(loopMark, t))}–${formatTimeVm(maxOf(loopMark, t))}")
+            loopMark = -1.0
+        }
+    }
+
+    fun renameSection(index: Int, kind: com.maxi.akordim.analysis.SectionKind) {
+        val a = analysis ?: return
+        val secs = a.sections.toMutableList()
+        secs[index] = secs[index].copy(kind = kind)
+        // renumber occurrences
+        val totals = secs.groupingBy { it.kind }.eachCount()
+        val counter = HashMap<com.maxi.akordim.analysis.SectionKind, Int>()
+        val renum = secs.map { x ->
+            val nmb = (counter[x.kind] ?: 0) + 1
+            counter[x.kind] = nmb
+            x.copy(number = if ((totals[x.kind] ?: 0) > 1) nmb else 0)
+        }
+        val updated = a.copy(sections = renum)
+        analysis = updated
+        song?.let { sg -> viewModelScope.launch(Dispatchers.IO) { store.saveAnalysis(sg.key, updated) } }
+    }
+
+    fun saveVoice(low: Int, high: Int) {
+        voiceLow = minOf(low, high); voiceHigh = maxOf(low, high)
+        prefs.edit().putInt("voiceLow", voiceLow).putInt("voiceHigh", voiceHigh).apply()
+    }
+
     // ------------------------------------------------------------ editing chords
 
     fun replaceChord(index: Int, newChord: Chord, everywhere: Boolean) {
@@ -364,6 +437,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        fun formatTimeVm(sec: Double): String {
+            val x = sec.toInt().coerceAtLeast(0)
+            return "%d:%02d".format(x / 60, x % 60)
+        }
+
         fun simplify(c: Chord): Chord {
             if (c.isNone) return c
             val q = when (c.quality) {

@@ -55,30 +55,14 @@ import androidx.compose.ui.unit.sp
 import com.maxi.akordim.analysis.SongAnalysis
 import com.maxi.akordim.music.Notes
 
-/** Bars of the song as lists of beat indices (a short pick-up bar first if needed). */
-fun bars(a: SongAnalysis): List<List<Int>> {
-    val nb = a.beats.size - 1
-    val out = ArrayList<List<Int>>()
-    if (a.downbeatPhase > 0) out.add((0 until minOf(a.downbeatPhase, nb)).toList())
-    var b = a.downbeatPhase
-    while (b < nb) {
-        out.add((b until minOf(b + a.beatsPerBar, nb)).toList())
-        b += a.beatsPerBar
-    }
-    return out
-}
+fun bars(a: SongAnalysis): List<List<Int>> = a.bars()
 
-fun beatToSegment(a: SongAnalysis): IntArray {
-    val nb = a.beats.size - 1
-    val m = IntArray(nb) { -1 }
-    a.segments.forEachIndexed { i, s -> for (b in s.startBeat until minOf(s.endBeat, nb)) m[b] = i }
-    return m
-}
+fun beatToSegment(a: SongAnalysis): IntArray = a.beatToSegment()
 
 @Composable
 fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
     val barList = remember(a) { bars(a) }
-    val rows = remember(barList) { barList.chunked(2) }
+    val items = remember(a) { chartItems(a, barList) }
     val b2s = remember(a) { beatToSegment(a) }
     var dialogSeg by remember { mutableIntStateOf(-1) }
     val listState = rememberLazyListState()
@@ -89,8 +73,8 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
     val sp = vm.spelling
 
     // keep the current row in view while playing
-    val curRow = remember(vm.beatIndex, rows) {
-        rows.indexOfFirst { r -> r.any { bar -> vm.beatIndex in bar } }
+    val curRow = remember(vm.beatIndex, items) {
+        items.indexOfFirst { it is ChartItem.Bars && it.bars.any { bar -> vm.beatIndex in bar } }
     }
     LaunchedEffect(curRow) {
         if (curRow >= 0 && vm.isPlaying) listState.animateScrollToItem((curRow - 1).coerceAtLeast(0))
@@ -109,7 +93,15 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(enabled = seg >= 0) { dialogSeg = seg },
             ) {
-                if (!compact) Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
+                val curSec = a.sections.getOrNull(a.sectionOfBeat(vm.beatIndex.coerceAtLeast(0)))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!compact) Text("עכשיו ", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
+                    if (curSec != null) Text(
+                        curSec.label, style = MaterialTheme.typography.labelSmall, color = Stage.OnAccent,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(sectionColor(curSec.kind))
+                            .padding(horizontal = 7.dp, vertical = 1.dp)
+                    )
+                }
                 Text(
                     cur?.let { vm.shown(it.chord).name(sp) } ?: "—",
                     style = MaterialTheme.typography.displayLarge.copy(fontSize = if (compact) 32.sp else 46.sp),
@@ -140,6 +132,8 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
             }
         }
 
+        LoopBanner(vm)
+
         // ---- chord chart
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             LazyColumn(
@@ -147,18 +141,24 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 4.dp),
             ) {
-                itemsIndexed(rows) { ri, row ->
-                    Row(Modifier.fillMaxWidth().height(if (compact) 36.dp else 46.dp).padding(vertical = 2.dp)) {
-                        row.forEach { bar ->
-                            BarCell(
-                                modifier = Modifier.weight(1f),
-                                a = a, vm = vm, bar = bar, b2s = b2s,
-                                onChord = { dialogSeg = it },
-                            )
+                itemsIndexed(items) { ri, item ->
+                    when (item) {
+                        is ChartItem.Header -> SectionHeader(vm, a, item.section)
+                        is ChartItem.Bars -> {
+                            val color = a.sections.getOrNull(item.section)?.let { sectionColor(it.kind) } ?: Stage.PaperDark
+                            Row(Modifier.fillMaxWidth().height(if (compact) 36.dp else 46.dp).padding(vertical = 2.dp)) {
+                                item.bars.forEach { bar ->
+                                    BarCell(
+                                        modifier = Modifier.weight(1f),
+                                        a = a, vm = vm, bar = bar, b2s = b2s, color = color,
+                                        onChord = { dialogSeg = it },
+                                    )
+                                }
+                                if (item.bars.size == 1) Spacer(Modifier.weight(1f))
+                            }
                         }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
-                    if (ri == rows.size - 1) Spacer(Modifier.height(8.dp))
+                    if (ri == items.size - 1) Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -202,13 +202,22 @@ private fun BeatDots(a: SongAnalysis, beat: Int) {
 
 @Composable
 private fun BarCell(
-    modifier: Modifier, a: SongAnalysis, vm: AppViewModel, bar: List<Int>, b2s: IntArray, onChord: (Int) -> Unit,
+    modifier: Modifier, a: SongAnalysis, vm: AppViewModel, bar: List<Int>, b2s: IntArray, color: Color, onChord: (Int) -> Unit,
 ) {
     val playingHere = vm.beatIndex in bar
+    val inLoop = vm.loopEnd > 0 && bar.isNotEmpty() && a.beats[bar.first()] >= vm.loopStart - 0.05 && a.beats[bar.first()] < vm.loopEnd - 0.05
     Row(
         modifier.fillMaxHeight().padding(horizontal = 2.dp).clip(RoundedCornerShape(6.dp))
-            .background(if (playingHere) Stage.Cream else Stage.Paper)
-            .border(1.dp, if (playingHere) Stage.Mustard else Stage.PaperDark, RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = if (playingHere) 0.30f else 0.13f))
+            .border(
+                if (playingHere || inLoop) 1.5.dp else 1.dp,
+                when {
+                    playingHere -> Stage.Mustard
+                    inLoop -> Stage.Ink.copy(alpha = 0.7f)
+                    else -> color.copy(alpha = 0.45f)
+                },
+                RoundedCornerShape(6.dp)
+            )
     ) {
         bar.forEachIndexed { i, b ->
             val s = b2s.getOrElse(b) { -1 }
@@ -367,3 +376,80 @@ fun ToggleChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVec
     }
 }
 
+
+
+sealed class ChartItem {
+    class Header(val section: Int) : ChartItem()
+    class Bars(val bars: List<List<Int>>, val section: Int) : ChartItem()
+}
+
+/** Section header rows followed by that section's bars, two bars per row. */
+fun chartItems(a: SongAnalysis, bars: List<List<Int>>): List<ChartItem> {
+    if (a.sections.isEmpty()) return bars.chunked(2).map { ChartItem.Bars(it, -1) }
+    val out = ArrayList<ChartItem>()
+    a.sections.forEachIndexed { i, sec ->
+        val sb = bars.filter { it.isNotEmpty() && it.first() >= sec.startBeat && it.first() < sec.endBeat }
+        if (sb.isEmpty()) return@forEachIndexed
+        out.add(ChartItem.Header(i))
+        sb.chunked(2).forEach { out.add(ChartItem.Bars(it, i)) }
+    }
+    return out
+}
+
+@Composable
+private fun SectionHeader(vm: AppViewModel, a: SongAnalysis, index: Int) {
+    val sec = a.sections[index]
+    var menu by remember { mutableStateOf(false) }
+    val color = sectionColor(sec.kind)
+    Box {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 1.dp).clip(RoundedCornerShape(6.dp))
+                .clickable { menu = true }.padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+            Spacer(Modifier.width(6.dp))
+            Text(sec.label, style = MaterialTheme.typography.labelLarge, color = color)
+            Spacer(Modifier.width(6.dp))
+            Text(formatTime(sec.start), style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
+            Spacer(Modifier.weight(1f))
+            Text("⋯", style = MaterialTheme.typography.labelLarge, color = Stage.InkSoft)
+        }
+        androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Stage.Cream) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("▶  נגן מכאן") },
+                onClick = { menu = false; vm.seekTo(sec.start); if (!vm.isPlaying) vm.togglePlay() })
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("↻  לופ על ${sec.label}") },
+                onClick = { menu = false; vm.setLoop(sec.start, sec.end, sec.label); if (!vm.isPlaying) vm.togglePlay() })
+            androidx.compose.material3.HorizontalDivider(color = Stage.PaperDark)
+            Text("זה בעצם:", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            com.maxi.akordim.analysis.SectionKind.entries.forEach { k ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(k.hebrew, color = sectionColor(k)) },
+                    onClick = { menu = false; vm.renameSection(index, k) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoopBanner(vm: AppViewModel) {
+    if (vm.loopEnd <= 0 && vm.loopMark < 0) return
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Row(
+            Modifier.fillMaxWidth().background(Stage.Mustard.copy(alpha = 0.18f)).padding(horizontal = 12.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                if (vm.loopEnd > 0) "↻ לופ: ${vm.loopLabel}" else "↻ סימנת התחלת לופ — לחץ על אקורד ובחר \"סוף לופ\"",
+                style = MaterialTheme.typography.labelMedium, color = Stage.Mustard, modifier = Modifier.weight(1f)
+            )
+            Text(
+                "בטל", style = MaterialTheme.typography.labelMedium, color = Stage.Ink,
+                modifier = Modifier.clip(RoundedCornerShape(50)).clickable { vm.clearLoop(); vm.markLoopStart(-1.0) }
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+        }
+    }
+}

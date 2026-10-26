@@ -74,3 +74,13 @@ fun AkordimTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+
+fun sectionColor(kind: com.maxi.akordim.analysis.SectionKind): Color = when (kind) {
+    com.maxi.akordim.analysis.SectionKind.CHORUS -> Stage.Rust
+    com.maxi.akordim.analysis.SectionKind.VERSE -> Color(0xFF7DB2FF)
+    com.maxi.akordim.analysis.SectionKind.PRECHORUS -> Color(0xFFB98CFF)
+    com.maxi.akordim.analysis.SectionKind.BRIDGE -> Color(0xFFFFC857)
+    com.maxi.akordim.analysis.SectionKind.INTRO, com.maxi.akordim.analysis.SectionKind.OUTRO -> Color(0xFF9C9FCB)
+    com.maxi.akordim.analysis.SectionKind.PART -> Stage.Mustard
+}

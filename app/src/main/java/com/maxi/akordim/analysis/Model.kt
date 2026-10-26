@@ -27,6 +27,7 @@ data class SongAnalysis(
     val keyConfidence: Float,
     val tuningCents: Double,
     val segments: List<ChordSegment>,
+    val sections: List<Section> = emptyList(),
     val tempoStability: Float, // 0..1, how steady the beat is
     val loudnessDb: Double,
     val analysisMillis: Long,
@@ -54,6 +55,30 @@ data class SongAnalysis(
         return lo
     }
 
+    /** Bars of the song as lists of beat indices (a short pick-up bar first if needed). */
+    fun bars(): List<List<Int>> {
+        val nb = beats.size - 1
+        val out = ArrayList<List<Int>>()
+        if (downbeatPhase > 0) out.add((0 until minOf(downbeatPhase, nb)).toList())
+        var b = downbeatPhase
+        while (b < nb) {
+            out.add((b until minOf(b + beatsPerBar, nb)).toList())
+            b += beatsPerBar
+        }
+        return out
+    }
+
+    fun beatToSegment(): IntArray {
+        val nb = beats.size - 1
+        val m = IntArray(nb) { -1 }
+        segments.forEachIndexed { i, s -> for (b in s.startBeat until minOf(s.endBeat, nb)) m[b] = i }
+        return m
+    }
+
+    fun sectionAt(t: Double): Int = sections.indexOfLast { it.start <= t }
+
+    fun sectionOfBeat(b: Int): Int = sections.indexOfFirst { b >= it.startBeat && b < it.endBeat }
+
     fun isDownbeat(beatIndex: Int) = beatIndex >= downbeatPhase && (beatIndex - downbeatPhase) % beatsPerBar == 0
 
     /** Unique chords weighted by how long they sound. */
@@ -64,7 +89,7 @@ data class SongAnalysis(
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
-        put("v", 3)
+        put("v", 4)
         put("duration", durationSec)
         put("bpm", bpm)
         put("bpb", beatsPerBar)
@@ -77,6 +102,14 @@ data class SongAnalysis(
         put("stability", tempoStability.toDouble())
         put("loud", loudnessDb)
         put("ms", analysisMillis)
+        put("secs", JSONArray().also { a ->
+            sections.forEach { x ->
+                a.put(JSONObject().apply {
+                    put("sb", x.startBeat); put("eb", x.endBeat); put("s", x.start); put("e", x.end)
+                    put("k", x.kind.name); put("g", x.group); put("n", x.number)
+                })
+            }
+        })
         put("segs", JSONArray().also { a ->
             segments.forEach { s ->
                 a.put(JSONObject().apply {
@@ -113,6 +146,15 @@ data class SongAnalysis(
                         s.getDouble("conf").toFloat()
                     )
                 },
+                sections = o.optJSONArray("secs")?.let { arr ->
+                    (0 until arr.length()).map { i ->
+                        val x = arr.getJSONObject(i)
+                        Section(
+                            x.getInt("sb"), x.getInt("eb"), x.getDouble("s"), x.getDouble("e"),
+                            SectionKind.valueOf(x.getString("k")), x.getInt("g"), x.getInt("n")
+                        )
+                    }
+                } ?: emptyList(),
                 tempoStability = o.getDouble("stability").toFloat(),
                 loudnessDb = o.getDouble("loud"),
                 analysisMillis = o.getLong("ms"),

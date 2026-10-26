@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +55,7 @@ private val TABS = listOf(
     Tab("סולם", Icons.Filled.SwapVert),
     Tab("גיטרה", Icons.Filled.MusicNote),
     Tab("פרטים", Icons.Filled.Info),
+    Tab("כלים", Icons.Filled.Tune),
 )
 
 @Composable
@@ -59,6 +63,22 @@ fun SongScreen(vm: AppViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 600
     val a = vm.analysis
+    if (a != null && vm.stageMode) {
+        androidx.activity.compose.BackHandler { vm.stageMode = false }
+        StageMode(vm, a)
+        return
+    }
+    if (a != null && vm.showSheet) {
+        androidx.activity.compose.BackHandler { vm.showSheet = false }
+        SheetScreen(vm, a)
+        return
+    }
+    // keep the screen awake while a song plays
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(vm.isPlaying) {
+        view.keepScreenOn = vm.isPlaying
+        onDispose { view.keepScreenOn = false }
+    }
     Column(Modifier.fillMaxSize().background(Stage.Paper)) {
         // Top bar
         Row(
@@ -83,6 +103,14 @@ fun SongScreen(vm: AppViewModel) {
                     )
                 }
             }
+            if (a != null) {
+                IconButton(onClick = { vm.showSheet = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Description, "דף אקורדים", tint = Stage.Ink)
+                }
+                IconButton(onClick = { vm.stageMode = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Fullscreen, "מצב במה", tint = Stage.Ink)
+                }
+            }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -92,7 +120,8 @@ fun SongScreen(vm: AppViewModel) {
                     0 -> PlayerTab(vm, a)
                     1 -> TransposeTab(vm, a)
                     2 -> GuitarTab(vm, a)
-                    else -> DetailsTab(vm, a)
+                    3 -> DetailsTab(vm, a)
+                    else -> ToolsContent(vm, a)
                 }
             }
         }

@@ -25,7 +25,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             AkordimTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    if (vm.song == null) {
+                    if (vm.song == null && vm.showTools) {
+                        BackHandler { vm.showTools = false }
+                        com.maxi.akordim.ui.ToolsScreen(vm)
+                    } else if (vm.song == null) {
                         LibraryScreen(vm)
                     } else {
                         BackHandler { vm.closeSong() }
