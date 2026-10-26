@@ -71,8 +71,13 @@ fun AkordimTheme(content: @Composable () -> Unit) {
             outlineVariant = Stage.PaperDark,
         ),
         typography = typography,
-        content = content,
-    )
+    ) {
+        // text without an explicit colour must be light on the dark background
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalContentColor provides Stage.Ink,
+            content = content,
+        )
+    }
 }
 
 
