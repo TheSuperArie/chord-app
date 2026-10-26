@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -96,19 +97,23 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
         if (curRow >= 0 && vm.isPlaying) listState.animateScrollToItem((curRow - 1).coerceAtLeast(0))
     }
 
+    // The F21 Pro screen is ~430dp tall: squeeze everything except the chord chart
+    val compact = LocalConfiguration.current.screenHeightDp < 600
+
     Column(Modifier.fillMaxSize()) {
         // ---- now playing
         Row(
-            Modifier.fillMaxWidth().background(Vintage.PaperDark).padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().background(Vintage.PaperDark)
+                .padding(horizontal = 12.dp, vertical = if (compact) 3.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(enabled = seg >= 0) { dialogSeg = seg },
             ) {
-                Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                if (!compact) Text("עכשיו", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
                 Text(
                     cur?.let { vm.shown(it.chord).name(sp) } ?: "—",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 46.sp),
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = if (compact) 32.sp else 46.sp),
                     color = Vintage.Rust, maxLines = 1,
                 )
                 Text(
@@ -117,13 +122,22 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("הבא", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
-                Text(
-                    next?.let { vm.shown(it.chord).name(sp) } ?: "",
-                    style = MaterialTheme.typography.headlineSmall, color = Vintage.Ink
-                )
-                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("הבא ", style = MaterialTheme.typography.labelSmall, color = Vintage.InkSoft)
+                    Text(
+                        next?.let { vm.shown(it.chord).name(sp) } ?: "",
+                        style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
+                        color = Vintage.Ink
+                    )
+                }
+                Spacer(Modifier.height(if (compact) 3.dp else 6.dp))
                 BeatDots(a, vm.beatIndex)
+                if (compact) {
+                    Row {
+                        MiniToggle(Icons.Filled.Piano, "פסנתר", vm.pianoOn) { vm.pianoOn = !vm.pianoOn }
+                        MiniToggle(Icons.Filled.Timer, "קליק", vm.clickOn) { vm.clickOn = !vm.clickOn }
+                    }
+                }
             }
         }
 
@@ -132,10 +146,10 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 4.dp),
             ) {
                 itemsIndexed(rows) { ri, row ->
-                    Row(Modifier.fillMaxWidth().height(46.dp).padding(vertical = 2.dp)) {
+                    Row(Modifier.fillMaxWidth().height(if (compact) 36.dp else 46.dp).padding(vertical = 2.dp)) {
                         row.forEach { bar ->
                             BarCell(
                                 modifier = Modifier.weight(1f),
@@ -151,7 +165,7 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
         }
 
         // ---- transport
-        Transport(vm, a)
+        if (compact) CompactTransport(vm, a) else Transport(vm, a)
 
         // ---- piano
         val chord = cur?.let { vm.shown(it.chord) }
@@ -160,8 +174,8 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
             hl[48 + chord.bassNote] = Vintage.Rust
             chord.pitchClasses.forEach { hl[60 + it] = Vintage.Mustard }
         }
-        Box(Modifier.background(Vintage.Ink).padding(horizontal = 4.dp, vertical = 4.dp)) {
-            PianoKeyboard(48, 71, hl, sp, height = 84.dp) { m -> vm.synth.note(m) }
+        Box(Modifier.background(Vintage.Ink).padding(horizontal = 4.dp, vertical = if (compact) 2.dp else 4.dp)) {
+            PianoKeyboard(48, 71, hl, sp, height = if (compact) 56.dp else 84.dp) { m -> vm.synth.note(m) }
         }
     }
 
@@ -274,6 +288,57 @@ private fun Transport(vm: AppViewModel, a: SongAnalysis) {
             }
         }
     }
+}
+
+/** One-line transport for small screens: play, time, seek bar. */
+@Composable
+private fun CompactTransport(vm: AppViewModel, a: SongAnalysis) {
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Row(
+            Modifier.fillMaxWidth().background(Vintage.Paper).padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(Vintage.Rust).clickable { vm.togglePlay() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (vm.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    if (vm.isPlaying) "השהה" else "נגן", tint = Vintage.Cream, modifier = Modifier.size(26.dp)
+                )
+            }
+            Icon(
+                Icons.Filled.Replay5, "אחורה", tint = Vintage.Ink,
+                modifier = Modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).clickable { vm.skip(-5.0) }
+            )
+            Text(
+                formatTime(if (dragging) dragValue.toDouble() else vm.position),
+                style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 6.dp)
+            )
+            Slider(
+                value = if (dragging) dragValue else vm.position.toFloat().coerceIn(0f, a.durationSec.toFloat()),
+                onValueChange = { dragging = true; dragValue = it },
+                onValueChangeFinished = { vm.seekTo(dragValue.toDouble()); dragging = false },
+                valueRange = 0f..a.durationSec.toFloat().coerceAtLeast(1f),
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp).height(28.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = Vintage.Rust, activeTrackColor = Vintage.Rust, inactiveTrackColor = Vintage.PaperDark
+                )
+            )
+            Text(formatTime(a.durationSec), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun MiniToggle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+    Icon(
+        icon, label,
+        tint = if (on) Vintage.Rust else Vintage.InkSoft.copy(alpha = 0.45f),
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onClick)
+    )
 }
 
 @Composable

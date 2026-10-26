@@ -57,15 +57,16 @@ private val TABS = listOf(
 @Composable
 fun SongScreen(vm: AppViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 600
     val a = vm.analysis
     Column(Modifier.fillMaxSize().background(Vintage.Paper)) {
         // Top bar
         Row(
             Modifier.fillMaxWidth().background(Vintage.Ink).statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = if (compact) 0.dp else 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { vm.closeSong() }) {
+            IconButton(onClick = { vm.closeSong() }, modifier = if (compact) Modifier.size(40.dp) else Modifier) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "חזרה", tint = Vintage.Paper)
             }
             Column(Modifier.weight(1f)) {
@@ -98,15 +99,16 @@ fun SongScreen(vm: AppViewModel) {
         if (a != null) {
             NavigationBar(
                 containerColor = Vintage.Ink,
-                modifier = Modifier.height(64.dp + 0.dp),
+                modifier = Modifier.height(if (compact) 50.dp else 64.dp),
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
             ) {
                 TABS.forEachIndexed { i, t ->
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { tab = i },
-                        icon = { Icon(t.icon, t.title, modifier = Modifier.size(22.dp)) },
+                        icon = { Icon(t.icon, t.title, modifier = Modifier.size(if (compact) 20.dp else 22.dp)) },
                         label = { Text(t.title, style = MaterialTheme.typography.labelMedium) },
+                        alwaysShowLabel = !compact,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Vintage.Ink,
                             selectedTextColor = Vintage.Mustard,

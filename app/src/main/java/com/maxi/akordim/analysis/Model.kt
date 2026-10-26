@@ -64,7 +64,7 @@ data class SongAnalysis(
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
-        put("v", 1)
+        put("v", 2)
         put("duration", durationSec)
         put("bpm", bpm)
         put("bpb", beatsPerBar)

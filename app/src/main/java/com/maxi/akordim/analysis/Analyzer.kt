@@ -734,6 +734,15 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                         // Am7 with G in the bass reads better as Am/G
                         val seventh = Notes.pc(base.root + (base.quality.intervals.getOrNull(3) ?: -100))
                         if (base.quality.isSeventh && bassPc == seventh) chord = Chord(base.root, base.quality.triad, bassPc)
+                        // ...but if a plain chord built on that bass fits almost as well, it is usually
+                        // the real one (Abm/B -> B, Am/F -> Fmaj7)
+                        val scores = avgScores(rs, re, chroma, bassN, energy, medEnergy, dia)
+                        var bestOnBass = -1
+                        for (i in VOCAB.indices) {
+                            if (VOCAB[i].root != bassPc) continue
+                            if (bestOnBass < 0 || scores[i] > scores[bestOnBass]) bestOnBass = i
+                        }
+                        if (bestOnBass >= 0 && scores[bestOnBass] >= scores[idx] - 0.05) chord = VOCAB[bestOnBass]
                     }
                 }
                 out.add(segment(rs, re, chord, beats, chroma, bassN, energy, medEnergy, dia, idx))
@@ -749,6 +758,19 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             } else merged.add(s)
         }
         return merged
+    }
+
+    private fun avgScores(
+        b: Int, e: Int, chroma: Array<DoubleArray>, bassN: Array<DoubleArray>,
+        energy: DoubleArray, medEnergy: Double, dia: Set<Chord>,
+    ): DoubleArray {
+        val avg = DoubleArray(VOCAB.size + 1)
+        for (k in b until e) {
+            val s = beatScores(chroma[k], bassN[k], energy[k], medEnergy, dia)
+            for (i in s.indices) avg[i] += s[i]
+        }
+        for (i in avg.indices) avg[i] /= max(1, e - b)
+        return avg
     }
 
     private data class Run(val start: Int, val end: Int, val bass: Int)

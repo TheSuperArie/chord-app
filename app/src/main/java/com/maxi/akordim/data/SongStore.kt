@@ -106,7 +106,9 @@ class SongStore(private val context: Context) {
 
     fun loadAnalysis(key: String): SongAnalysis? = try {
         val f = File(dir, "$key.json")
-        if (f.exists()) SongAnalysis.fromJson(JSONObject(f.readText())) else null
+        val o = if (f.exists()) JSONObject(f.readText()) else null
+        // older engine versions are re-analysed with the improved recogniser
+        if (o != null && o.optInt("v") == 2) SongAnalysis.fromJson(o) else null
     } catch (_: Exception) {
         null
     }
