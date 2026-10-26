@@ -1,0 +1,207 @@
+package com.maxi.akordim.ui
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+
+@Composable
+fun LibraryScreen(vm: AppViewModel) {
+    val context = LocalContext.current
+    val permissions = if (Build.VERSION.SDK_INT >= 33)
+        arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO)
+    else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    fun granted() = permissions.any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+    var hasPermission by remember { mutableStateOf(granted()) }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        hasPermission = granted()
+        if (hasPermission) vm.loadDeviceSongs()
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.openPicked(uri)
+    }
+    LaunchedEffect(hasPermission) {
+        vm.refreshRecents()
+        if (hasPermission && !vm.deviceSongsLoaded) vm.loadDeviceSongs()
+    }
+    var query by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxSize().background(Vintage.Paper)) {
+        // Header
+        Column(
+            Modifier.fillMaxWidth().background(Vintage.Ink).statusBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 14.dp)
+        ) {
+            Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Vintage.Mustard)
+            Text(
+                "בוחרים שיר — והאקורדים, הסולם והקצב מופיעים. הכול בלי אינטרנט.",
+                style = MaterialTheme.typography.bodySmall, color = Vintage.PaperDark
+            )
+        }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                Button(
+                    onClick = { picker.launch(arrayOf("audio/*", "video/*")) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Icon(Icons.Filled.FolderOpen, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("בחירת שיר מהקבצים", style = MaterialTheme.typography.titleSmall)
+                }
+            }
+            if (vm.recents.isNotEmpty()) {
+                item { SectionTitle(Icons.Filled.History, "פתחת לאחרונה") }
+                items(vm.recents.take(8), key = { "r" + it.key }) { r ->
+                    SongRow(
+                        icon = Icons.Filled.MusicNote,
+                        title = r.title,
+                        subtitle = r.summary + if (r.transpose != 0) " · סולם ${if (r.transpose > 0) "+" else ""}${r.transpose}" else "",
+                        onClick = { vm.openRecent(r) },
+                        onRemove = { vm.removeRecent(r) },
+                    )
+                }
+            }
+            item { SectionTitle(Icons.Filled.LibraryMusic, "שירים וסרטונים בטלפון") }
+            if (!hasPermission) {
+                item {
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Vintage.Cream)
+                            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(10.dp)).padding(14.dp)
+                    ) {
+                        Text("כדי להציג את השירים שבטלפון צריך אישור גישה לקבצי מדיה.", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = { permLauncher.launch(permissions) }) { Text("אישור גישה") }
+                    }
+                }
+            } else {
+                item {
+                    OutlinedTextField(
+                        value = query, onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("חיפוש שיר") },
+                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        shape = RoundedCornerShape(10.dp),
+                    )
+                }
+                val list = vm.deviceSongs.filter {
+                    query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true)
+                }
+                if (vm.deviceSongsLoaded && list.isEmpty()) {
+                    item {
+                        Text(
+                            if (query.isBlank()) "לא נמצאו קבצי שמע או וידאו בטלפון. אפשר לבחור קובץ בכפתור למעלה."
+                            else "אין תוצאות לחיפוש",
+                            style = MaterialTheme.typography.bodyMedium, color = Vintage.InkSoft,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+                items(list, key = { it.uri.toString() }) { f ->
+                    SongRow(
+                        icon = if (f.isVideo) Icons.Filled.Videocam else Icons.Filled.MusicNote,
+                        title = f.title,
+                        subtitle = listOf(f.artist, formatTime(f.durationMs / 1000.0)).filter { it.isNotBlank() }.joinToString(" · "),
+                        onClick = { vm.openDevice(f) },
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(icon: ImageVector, text: String) {
+    Row(Modifier.padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Vintage.Rust, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.titleSmall, color = Vintage.Ink)
+    }
+}
+
+@Composable
+private fun SongRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Vintage.Cream)
+            .border(1.dp, Vintage.PaperDark, RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(36.dp).clip(CircleShape).background(Vintage.Ink),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = Vintage.Mustard, modifier = Modifier.size(20.dp)) }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Vintage.InkSoft, maxLines = 1)
+        }
+        if (onRemove != null) {
+            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Filled.Close, "הסר", tint = Vintage.InkSoft, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+fun formatTime(sec: Double): String {
+    val s = sec.toInt().coerceAtLeast(0)
+    return "%d:%02d".format(s / 60, s % 60)
+}
