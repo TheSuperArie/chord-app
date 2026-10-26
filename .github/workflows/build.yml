@@ -27,7 +27,7 @@ jobs:
       - name: Report errors
         if: failure()
         run: |
-          MSG=$(grep -E "^e: |error:|What went wrong|Could not|Execution failed|> " build.log | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          MSG=$(grep -E "^e: |error:|What went wrong|Could not|Execution failed|^ *> " build.log | grep -v "> Task" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=Build failed::$MSG"
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk Akordim.apk

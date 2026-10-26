@@ -94,7 +94,7 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(0.5f, 0.75f, 0.9f, 1f, 1.1f).forEach { s ->
-                            Choice("${if (s == 1f) "1" else s.toString()}×", vm.speed == s) { vm.setSpeed(s) }
+                            Choice("${if (s == 1f) "1" else s.toString()}×", vm.speed == s) { vm.changeSpeed(s) }
                         }
                     }
                 }

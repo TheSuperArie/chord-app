@@ -243,7 +243,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun skip(dt: Double) = seekTo((position + dt).coerceIn(0.0, analysis?.durationSec ?: 1e9))
 
-    fun setSpeed(s: Float) {
+    fun changeSpeed(s: Float) {
         speed = s; applyPlaybackParams()
     }
 
