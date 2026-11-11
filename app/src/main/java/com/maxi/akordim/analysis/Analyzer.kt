@@ -30,14 +30,13 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         const val SR = 11025
         private const val ONSET_N = 512
         private const val ONSET_HOP = 128
-        private const val CHROMA_HOP = 1024
+        private const val CHROMA_HOP = 512
         private const val TREBLE_N = 4096
-        private const val BASS_N = 4096
-        private const val TREBLE_LO = 45 // A2
-        private const val TREBLE_HI = 90 // F#6
-        private const val BASS_LO = 33 // A1
-        private const val BASS_HI = 55 // G3
-
+        private const val LOW_N = 8192 // long window: the only way to tell low bass notes apart
+        private const val NOTE_LO = 28 // E1
+        private const val NOTE_HI = 96 // C7
+        private const val NOTES = NOTE_HI - NOTE_LO + 1
+        private const val SPLIT_NOTE = 55 // below G3 the long window is used
         val VOCAB: List<Chord> = buildList {
             for (q in Quality.entries) for (r in 0 until 12) add(Chord(r, q))
         }
@@ -112,31 +111,14 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
         progress(0.3f, "מנתח צלילים")
         val tuning = estimateTuning(x)
-        val (treble, bass, energy) = chromaFrames(x, tuning)
+        val spec = noteFrames(x, tuning)
 
         progress(0.7f, "מזהה אקורדים")
         val nb = beats.size - 1
         val beatChroma = Array(nb) { DoubleArray(12) }
         val beatBass = Array(nb) { DoubleArray(12) }
         val beatEnergy = DoubleArray(nb)
-        val chromaFps = SR.toDouble() / CHROMA_HOP
-        for (b in 0 until nb) {
-            val f0 = (beats[b] * chromaFps).roundToInt().coerceIn(0, treble.size - 1)
-            val f1 = max(f0 + 1, (beats[b + 1] * chromaFps).roundToInt()).coerceAtMost(treble.size)
-            // bass only from the first part of the beat, so the next bar's bass can't leak in
-            val fb = (f0 + max(1, ((f1 - f0) * 0.6).roundToInt())).coerceAtMost(f1)
-            for (f in f0 until f1) {
-                for (p in 0 until 12) beatChroma[b][p] += treble[f][p]
-                if (f < fb) for (p in 0 until 12) beatBass[b][p] += bass[f][p]
-                beatEnergy[b] += energy[f]
-            }
-            val n = (f1 - f0).toDouble()
-            val nbF = (fb - f0).toDouble()
-            for (p in 0 until 12) {
-                beatChroma[b][p] /= n; beatBass[b][p] /= nbF
-            }
-            beatEnergy[b] /= n
-        }
+        beatFeatures(spec, beats, beatChroma, beatBass, beatEnergy)
         val processed = Array(nb) { b -> processChroma(beatChroma[b]) }
         val bassNorm = Array(nb) { b -> beatBass[b].copyOf().also { normalize(it) } }
         val medEnergy = beatEnergy.sorted().let { if (it.isEmpty()) 1.0 else it[it.size / 2] }
@@ -158,6 +140,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             key = refined
             path = viterbi(processed, bassNorm, beatEnergy, medEnergy, key, bpb, phase)
         }
+        refineQualities(path, processed, bassNorm, key)
         val keyConf = keyConfidence(keyScores, path, key)
 
         progress(0.9f, "מזהה בס")
@@ -438,7 +421,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         val mag = FloatArray(TREBLE_N / 2 + 1)
         var cx = 0.0
         var cy = 0.0
-        val hop = CHROMA_HOP * 6
+        val hop = CHROMA_HOP * 12
         var start = 0
         val loBin = (100.0 * TREBLE_N / SR).toInt()
         val hiBin = (2000.0 * TREBLE_N / SR).toInt()
@@ -465,82 +448,164 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         return atan2(cy, cx) / (2 * PI) * 100.0
     }
 
-    private class BinMap(val bin: IntArray, val semi: IntArray)
+    private class NoteSpec(val frames: Array<FloatArray>, val energy: DoubleArray)
 
-    private fun binMap(n: Int, lo: Int, hi: Int, tuning: Double): BinMap {
-        val bins = ArrayList<Int>()
-        val semis = ArrayList<Int>()
-        for (k in 1 until n / 2) {
-            val f = k.toDouble() * SR / n
-            val m = 69 + 12 * log2(f / 440.0) - tuning / 100.0
-            val s = m.roundToInt()
-            if (s in lo..hi) {
-                bins.add(k); semis.add(s - lo)
-            }
-        }
-        return BinMap(bins.toIntArray(), semis.toIntArray())
-    }
-
-    private data class Frames(val treble: Array<DoubleArray>, val bass: Array<DoubleArray>, val energy: DoubleArray)
-
-    private fun chromaFrames(x: FloatArray, tuning: Double): Frames {
+    /**
+     * Note-level spectrum (one value per semitone, E1..C7) for every analysis frame.
+     * Only real spectral peaks are counted, after removing the broadband floor that drums
+     * and noise leave behind, and each peak goes to the note it is actually tuned to.
+     */
+    private fun noteFrames(x: FloatArray, tuning: Double): NoteSpec {
         val nFrames = x.size / CHROMA_HOP + 1
-        val tFft = Fft(TREBLE_N)
-        val bFft = Fft(BASS_N)
-        val tMag = FloatArray(TREBLE_N / 2 + 1)
-        val bMag = FloatArray(BASS_N / 2 + 1)
-        val tMap = binMap(TREBLE_N, TREBLE_LO, TREBLE_HI, tuning)
-        val bMap = binMap(BASS_N, BASS_LO, BASS_HI, tuning)
-        val tSemi = Array(nFrames) { FloatArray(TREBLE_HI - TREBLE_LO + 1) }
-        val bSemi = Array(nFrames) { FloatArray(BASS_HI - BASS_LO + 1) }
+        val hiFft = Fft(TREBLE_N)
+        val loFft = Fft(LOW_N)
+        val hiMag = FloatArray(TREBLE_N / 2 + 1)
+        val loMag = FloatArray(LOW_N / 2 + 1)
+        val prefix = DoubleArray(LOW_N / 2 + 2)
+        val split = 440.0 * 2.0.pow((SPLIT_NOTE - 69 - 0.5 + tuning / 100.0) / 12.0)
+        val fMin = 440.0 * 2.0.pow((NOTE_LO - 69 - 0.5 + tuning / 100.0) / 12.0)
+        val fMax = min(SR * 0.47, 440.0 * 2.0.pow((NOTE_HI - 69 + 0.5 + tuning / 100.0) / 12.0))
+        val frames = Array(nFrames) { FloatArray(NOTES) }
         val energy = DoubleArray(nFrames)
         for (f in 0 until nFrames) {
             val c = f * CHROMA_HOP
-            tFft.magnitudes(x, c - TREBLE_N / 2, tMag)
-            bFft.magnitudes(x, c - BASS_N / 2, bMag)
-            for (i in tMap.bin.indices) {
-                val s = tMap.semi[i]
-                val v = tMag[tMap.bin[i]]
-                if (v > tSemi[f][s]) tSemi[f][s] = v
-            }
-            for (i in bMap.bin.indices) {
-                val s = bMap.semi[i]
-                val v = bMag[bMap.bin[i]]
-                if (v > bSemi[f][s]) bSemi[f][s] = v
-            }
+            loFft.magnitudes(x, c - LOW_N / 2, loMag)
+            hiFft.magnitudes(x, c - TREBLE_N / 2, hiMag)
+            val out = frames[f]
+            addPeaks(loMag, LOW_N, fMin, split, tuning, prefix, out)
+            addPeaks(hiMag, TREBLE_N, split, fMax, tuning, prefix, out)
             var e = 0.0
-            for (v in tSemi[f]) e += v * v
-            for (v in bSemi[f]) e += v * v
+            for (v in out) e += v * v
             energy[f] = sqrt(e)
             if (f % 200 == 0) progress(0.3f + 0.4f * f / nFrames, "מנתח צלילים")
         }
-        val tRef = percentile(tSemi, 0.95).coerceAtLeast(1e-6f)
-        val bRef = percentile(bSemi, 0.95).coerceAtLeast(1e-6f)
-        val treble = Array(nFrames) { f ->
-            val c = DoubleArray(12)
-            for (s in tSemi[f].indices) c[(s + TREBLE_LO) % 12] += ln(1.0 + 20.0 * tSemi[f][s] / tRef)
-            c
-        }
-        val bass = Array(nFrames) { f ->
-            val c = DoubleArray(12)
-            for (s in bSemi[f].indices) {
-                // lower notes weigh more: the lowest note is what the ear calls the bass
-                val w = 1.0 + 0.5 * (bSemi[f].size - s) / bSemi[f].size
-                c[(s + BASS_LO) % 12] += w * ln(1.0 + 20.0 * bSemi[f][s] / bRef)
-            }
-            c
-        }
-        return Frames(treble, bass, energy)
+        return NoteSpec(frames, energy)
     }
 
-    private fun percentile(a: Array<FloatArray>, q: Double): Float {
-        val all = FloatArray(a.size * a[0].size)
-        var i = 0
-        for (r in a) for (v in r) all[i++] = v
-        val step = max(1, all.size / 20000)
-        val sample = FloatArray(all.size / step) { all[it * step] }
-        sample.sort()
-        return if (sample.isEmpty()) 1f else sample[((sample.size - 1) * q).toInt()]
+    private fun addPeaks(
+        mag: FloatArray, n: Int, fLo: Double, fHi: Double, tuning: Double, prefix: DoubleArray, out: FloatArray,
+    ) {
+        val half = n / 2
+        val k0 = max(2, (fLo * n / SR).toInt() - 1)
+        val k1 = min(half - 2, (fHi * n / SR).toInt() + 1)
+        if (k1 <= k0) return
+        val w = max(8, n / 96) // floor window: about +-115 Hz
+        val a0 = max(1, k0 - w)
+        val a1 = min(half - 1, k1 + w)
+        prefix[a0] = 0.0
+        for (k in a0..a1) prefix[k + 1] = prefix[k] + mag[k]
+        val scale = 2f / n
+        for (k in k0..k1) {
+            val m = mag[k]
+            if (m <= mag[k - 1] || m < mag[k + 1]) continue
+            val lo = max(a0, k - w)
+            val hi = min(a1, k + w)
+            val floor = ((prefix[hi + 1] - prefix[lo]) / (hi - lo + 1)).toFloat()
+            if (m < 1.3f * floor) continue
+            val la = ln(mag[k - 1] + 1e-9f)
+            val lb = ln(m + 1e-9f)
+            val lc = ln(mag[k + 1] + 1e-9f)
+            val d = la - 2 * lb + lc
+            val off = if (d < 0) (0.5f * (la - lc) / d).coerceIn(-0.5f, 0.5f) else 0f
+            val freq = (k + off).toDouble() * SR / n
+            if (freq < fLo || freq >= fHi) continue
+            val midi = 69 + 12 * log2(freq / 440.0) - tuning / 100.0
+            val note = midi.roundToInt()
+            if (note < NOTE_LO || note > NOTE_HI) continue
+            val dev = midi - note
+            val cw = cos(PI * dev)
+            out[note - NOTE_LO] += (cw * cw).toFloat() * (m - floor) * scale
+        }
+    }
+
+    /**
+     * Per-beat harmony: the median note spectrum of the beat (which drops drum hits and
+     * other short events), with the overtones of every note explained away so that only
+     * the notes really being played are left, folded to treble and bass pitch classes.
+     */
+    private fun beatFeatures(
+        spec: NoteSpec, beats: List<Double>,
+        beatChroma: Array<DoubleArray>, beatBass: Array<DoubleArray>, beatEnergy: DoubleArray,
+    ) {
+        val nb = beats.size - 1
+        val fps = SR.toDouble() / CHROMA_HOP
+        val nf = spec.frames.size
+        val beatSpec = Array(nb) { DoubleArray(NOTES) }
+        val bassSpec = Array(nb) { DoubleArray(NOTES) }
+        val tmp = FloatArray(64)
+        for (b in 0 until nb) {
+            val f0 = (beats[b] * fps).roundToInt().coerceIn(0, nf - 1)
+            val f1 = max(f0 + 1, (beats[b + 1] * fps).roundToInt()).coerceAtMost(nf)
+            // bass only from the first part of the beat, so the next bar's bass can't leak in
+            val fb = (f0 + max(1, ((f1 - f0) * 0.7).roundToInt())).coerceAtMost(f1)
+            for (s in 0 until NOTES) {
+                beatSpec[b][s] = aggregate(spec.frames, f0, f1, s, tmp)
+                bassSpec[b][s] = if (fb == f1) beatSpec[b][s] else aggregate(spec.frames, f0, fb, s, tmp)
+            }
+            var e = 0.0
+            for (f in f0 until f1) e += spec.energy[f]
+            beatEnergy[b] = e / (f1 - f0)
+        }
+        // common reference level, then compress so loud partials do not swamp quiet notes
+        val all = ArrayList<Double>()
+        for (b in 0 until nb step max(1, nb / 400)) for (v in beatSpec[b]) if (v > 0) all.add(v)
+        all.sort()
+        val ref = if (all.isEmpty()) 1.0 else max(1e-9, all[((all.size - 1) * 0.95).toInt()])
+        val act = DoubleArray(NOTES)
+        for (b in 0 until nb) {
+            for (pass in 0..1) {
+                val src = if (pass == 0) beatSpec[b] else bassSpec[b]
+                for (s in 0 until NOTES) src[s] = (src[s] / ref).pow(0.45)
+                System.arraycopy(src, 0, act, 0, NOTES)
+                if (pass == 1) {
+                    // a bass note's own overtones (octave, fifth above it...) must not be
+                    // mistaken for other bass notes: walk upward and take them out
+                    for (j in 0 until NOTES) {
+                        val a = act[j]
+                        if (a <= 0 || j + NOTE_LO > 57) continue
+                        if (j + 12 < NOTES) act[j + 12] = max(0.0, act[j + 12] - 0.7 * a)
+                        if (j + 19 < NOTES) act[j + 19] = max(0.0, act[j + 19] - 0.6 * a)
+                        if (j + 24 < NOTES) act[j + 24] = max(0.0, act[j + 24] - 0.5 * a)
+                    }
+                }
+                if (pass == 0) {
+                    for (s in 0 until NOTES) {
+                        val m = s + NOTE_LO
+                        val w = when {
+                            m < 40 -> 0.0
+                            m < 48 -> (m - 40) / 8.0
+                            m <= 79 -> 1.0
+                            m < 91 -> (91 - m) / 12.0
+                            else -> 0.0
+                        }
+                        beatChroma[b][m % 12] += w * act[s]
+                    }
+                } else {
+                    for (s in 0 until NOTES) {
+                        val m = s + NOTE_LO
+                        // lower notes weigh more: the lowest note is what the ear calls the bass
+                        val w = when {
+                            m <= 45 -> 1.0
+                            m < 57 -> (57 - m) / 12.0
+                            else -> 0.0
+                        }
+                        beatBass[b][m % 12] += w * act[s]
+                    }
+                }
+            }
+        }
+    }
+
+    private fun aggregate(frames: Array<FloatArray>, f0: Int, f1: Int, s: Int, tmp: FloatArray): Double {
+        val n = f1 - f0
+        if (n < 3 || n > tmp.size) {
+            var sum = 0.0
+            for (f in f0 until f1) sum += frames[f][s]
+            return sum / n
+        }
+        for (i in 0 until n) tmp[i] = frames[f0 + i][s]
+        java.util.Arrays.sort(tmp, 0, n)
+        return if (n % 2 == 1) tmp[n / 2].toDouble() else 0.5 * (tmp[n / 2 - 1] + tmp[n / 2])
     }
 
     /** Remove the noise floor and normalise. */
@@ -637,7 +702,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             var s = dot(chroma, templates[i]) + COMPLEXITY.getValue(c.quality)
             if (c in diatonic) s += 0.035
             // the bass usually plays the root
-            s += 0.06 * bassN[c.root]
+            s += 0.12 * bassN[c.root]
             out[i] = s
         }
         // "no chord": silence or very flat (noise / drums only) pitch content
@@ -698,6 +763,41 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             s = back[b][s]
         }
         return IntArray(nb) { if (path[it] == noneIndex) -1 else path[it] }
+    }
+
+    /**
+     * Second look at every chord run: the root is kept, but the flavour (7, maj7, sus...) is
+     * chosen again from the harmony of the whole run, which is far steadier than single beats.
+     */
+    private fun refineQualities(path: IntArray, chroma: Array<DoubleArray>, bassN: Array<DoubleArray>, key: MusicalKey) {
+        val dia = key.diatonic().toSet()
+        val nb = path.size
+        var b = 0
+        while (b < nb) {
+            var e = b + 1
+            while (e < nb && path[e] == path[b]) e++
+            val idx = path[b]
+            if (idx >= 0) {
+                val avg = DoubleArray(12)
+                for (k in b until e) for (p in 0 until 12) avg[p] += chroma[k][p]
+                normalize(avg)
+                val root = VOCAB[idx].root
+                var best = idx
+                var bestS = Double.NEGATIVE_INFINITY
+                for (i in VOCAB.indices) {
+                    val c = VOCAB[i]
+                    if (c.root != root) continue
+                    var sc = dot(avg, templates[i]) + 0.7 * COMPLEXITY.getValue(c.quality)
+                    if (c in dia) sc += 0.02
+                    if (i == idx) sc += 0.01
+                    if (sc > bestS) {
+                        bestS = sc; best = i
+                    }
+                }
+                for (k in b until e) path[k] = best
+            }
+            b = e
+        }
     }
 
     private fun buildSegments(
@@ -790,6 +890,11 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
     private fun bassRuns(beatBass: IntArray, b: Int, e: Int, chord: Chord): List<Run> {
         // bass per beat, unclear beats inherit the chord root
         val bassSeq = IntArray(e - b) { val v = beatBass[b + it]; if (v < 0) chord.root else v }
+        if (bassSeq.isNotEmpty() && bassSeq[0] == chord.root) {
+            // root-fifth alternating bass is an accompaniment pattern, not a new chord
+            val fifth = Notes.pc(chord.root + 7)
+            for (i in bassSeq.indices) if (bassSeq[i] == fifth) bassSeq[i] = chord.root
+        }
         val runs = ArrayList<Run>()
         var i = 0
         while (i < bassSeq.size) {

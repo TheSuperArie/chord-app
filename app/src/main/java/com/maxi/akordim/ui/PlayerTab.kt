@@ -96,6 +96,11 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
                 val curSec = a.sections.getOrNull(a.sectionOfBeat(vm.beatIndex.coerceAtLeast(0)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!compact) Text("עכשיו ", style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
+                    if (vm.capo > 0) Text(
+                        "קאפו ${vm.capo}", style = MaterialTheme.typography.labelSmall, color = Stage.Mustard,
+                        modifier = Modifier.padding(end = 5.dp).clip(RoundedCornerShape(50))
+                            .border(1.dp, Stage.Mustard, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 1.dp)
+                    )
                     if (curSec != null) Text(
                         curSec.label, style = MaterialTheme.typography.labelSmall, color = Stage.OnAccent,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(sectionColor(curSec.kind))
@@ -167,14 +172,15 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
         if (compact) CompactTransport(vm, a) else Transport(vm, a)
 
         // ---- piano
-        val chord = cur?.let { vm.shown(it.chord) }
+        // the keyboard shows the real notes, even when the names above are capo shapes
+        val chord = cur?.let { vm.sounding(it.chord) }
         val hl = HashMap<Int, Color>()
         if (chord != null && !chord.isNone) {
             hl[48 + chord.bassNote] = Stage.Rust
             chord.pitchClasses.forEach { hl[60 + it] = Stage.Mustard }
         }
         Box(Modifier.background(Stage.Bar).padding(horizontal = 4.dp, vertical = if (compact) 2.dp else 4.dp)) {
-            PianoKeyboard(48, 71, hl, sp, height = if (compact) 56.dp else 84.dp) { m -> vm.synth.note(m) }
+            PianoKeyboard(48, 71, hl, vm.soundingSpelling, height = if (compact) 56.dp else 84.dp) { m -> vm.synth.note(m) }
         }
     }
 
@@ -208,7 +214,7 @@ private fun BarCell(
     val inLoop = vm.loopEnd > 0 && bar.isNotEmpty() && a.beats[bar.first()] >= vm.loopStart - 0.05 && a.beats[bar.first()] < vm.loopEnd - 0.05
     Row(
         modifier.fillMaxHeight().padding(horizontal = 2.dp).clip(RoundedCornerShape(6.dp))
-            .background(color.copy(alpha = if (playingHere) 0.30f else 0.13f))
+            .background(color.copy(alpha = if (playingHere) 0.36f else 0.16f))
             .border(
                 if (playingHere || inLoop) 1.5.dp else 1.dp,
                 when {

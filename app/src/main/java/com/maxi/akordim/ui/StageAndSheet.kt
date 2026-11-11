@@ -131,7 +131,8 @@ fun SheetScreen(vm: AppViewModel, a: SongAnalysis) {
     val lines = ChordSheet.lines(a, bars, b2s, { vm.shown(it) }, sp)
     val title = vm.song?.title ?: "שיר"
     val key = a.key.transpose(vm.transpose)
-    val header = "סולם ${key.name()} · ${a.bpm.toInt()} BPM · ${a.beatsPerBar}/4" + if (vm.capo > 0) " · קאפו ${vm.capo}" else ""
+    val header = "סולם ${key.name()} · ${a.bpm.toInt()} BPM · ${a.beatsPerBar}/4" +
+        if (vm.capo > 0) " · קאפו ${vm.capo} (צורות ${key.transpose(-vm.capo).name()})" else ""
 
     Column(Modifier.fillMaxSize().background(Stage.Paper)) {
         Row(

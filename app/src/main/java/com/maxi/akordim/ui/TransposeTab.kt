@@ -110,12 +110,12 @@ fun TransposeTab(vm: AppViewModel, a: SongAnalysis) {
                     Column(
                         Modifier.clip(RoundedCornerShape(8.dp)).background(Stage.Cream)
                             .border(1.dp, Stage.PaperDark, RoundedCornerShape(8.dp))
-                            .clickable { vm.playChordPreview(shown) }
+                            .clickable { vm.playShown(shown) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(shown.name(vm.spelling), style = MaterialTheme.typography.titleMedium, color = Stage.Rust)
-                        if (vm.transpose != 0) Text(c.name(a.key.spelling), style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
+                        if (vm.displayShift != 0) Text(c.name(a.key.spelling), style = MaterialTheme.typography.labelSmall, color = Stage.InkSoft)
                     }
                 }
             }

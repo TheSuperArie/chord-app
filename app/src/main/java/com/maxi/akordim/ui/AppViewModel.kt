@@ -321,9 +321,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         capo = c; saveRecent(); warmGuitar()
     }
 
-    val spelling: Spelling get() = analysis?.key?.transpose(transpose)?.spelling ?: Spelling.COMMON
+    /** How far the chord names on screen are from the original recording. */
+    val displayShift: Int get() = transpose - capo
 
-    fun shown(c: Chord): Chord = c.transpose(transpose).let { if (simpleChords) simplify(it) else it }
+    /** Spelling for chord names on screen (with a capo: the key of the shapes you finger). */
+    val spelling: Spelling get() = analysis?.key?.transpose(displayShift)?.spelling ?: Spelling.COMMON
+
+    /** Spelling for what is actually heard (piano keys, "sounds like"). */
+    val soundingSpelling: Spelling get() = analysis?.key?.transpose(transpose)?.spelling ?: Spelling.COMMON
+
+    /** The chord as it sounds after transposing. */
+    fun sounding(c: Chord): Chord = c.transpose(transpose).let { if (simpleChords) simplify(it) else it }
+
+    /** The chord as written everywhere in the app: with a capo these are the shapes to play. */
+    fun shown(c: Chord): Chord = sounding(c).transpose(-capo)
 
     fun toggleSimple() {
         simpleChords = !simpleChords
@@ -331,11 +342,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         warmGuitar()
     }
 
-    /** Chords as shown (transposed / simplified), merged, longest first. */
-    fun usageShown(a: SongAnalysis): List<Pair<Chord, Double>> {
+    /** Chords as written on screen (transposed / simplified / capo), merged, longest first. */
+    fun usageShown(a: SongAnalysis): List<Pair<Chord, Double>> =
+        usageSounding(a).map { it.first.transpose(-capo) to it.second }
+
+    /** Chords as they sound (transposed / simplified), merged, longest first. */
+    fun usageSounding(a: SongAnalysis): List<Pair<Chord, Double>> {
         val m = LinkedHashMap<Chord, Double>()
         for ((c, t) in a.chordUsage()) {
-            val k = shown(c)
+            val k = sounding(c)
             m[k] = (m[k] ?: 0.0) + t
         }
         return m.entries.sortedByDescending { it.value }.map { it.key to it.value }
@@ -347,7 +362,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         guitarJob?.cancel()
         val c = capo
         guitarJob = viewModelScope.launch(Dispatchers.Default) {
-            val usage = usageShown(a)
+            val usage = usageSounding(a)
             for ((ch, _) in usage) Guitar.voicings(ch.transpose(-c))
             withContext(Dispatchers.Main) { guitarVersion++ }
             val sug = Guitar.suggestCapo(usage)
@@ -426,6 +441,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         warmGuitar()
         song?.let { s -> viewModelScope.launch(Dispatchers.IO) { store.saveAnalysis(s.key, updated) } }
     }
+
+    /** Preview a chord given the way it is written on screen (capo shape). */
+    fun playShown(c: Chord) = playChordPreview(c.transpose(capo))
 
     fun playChordPreview(c: Chord) {
         if (!c.isNone) synth.chord(pianoMidis(c))

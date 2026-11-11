@@ -90,7 +90,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
                             Text(shown.name(sp), style = MaterialTheme.typography.titleLarge)
                             Text(shown.hebrewName(sp), style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft)
                         }
-                        IconButton(onClick = { vm.playChordPreview(shown) }, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { vm.playShown(shown) }, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Stage.Rust)
                         }
                     }
@@ -136,7 +136,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
 @Composable
 private fun ManualPicker(vm: AppViewModel, start: Chord, onPick: (Chord) -> Unit) {
     val sp = vm.spelling
-    // the user picks in the shown (transposed) key; we store it in the original key
+    // the user picks in the shown (transposed / capo) key; we store it in the original key
     val startShown = if (start.isNone) Chord(0, Quality.MAJ) else vm.shown(start)
     var root by remember { mutableIntStateOf(startShown.root) }
     var quality by remember { mutableStateOf(startShown.quality) }
@@ -161,10 +161,10 @@ private fun ManualPicker(vm: AppViewModel, start: Chord, onPick: (Chord) -> Unit
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(picked.name(sp), style = MaterialTheme.typography.titleLarge, color = Stage.Rust, modifier = Modifier.weight(1f))
-            IconButton(onClick = { vm.playChordPreview(picked) }) {
+            IconButton(onClick = { vm.playShown(picked) }) {
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, "השמע", tint = Stage.Rust)
             }
-            TextButton(onClick = { onPick(picked.transpose(-vm.transpose)) }) { Text("בחר") }
+            TextButton(onClick = { onPick(picked.transpose(-vm.displayShift)) }) { Text("בחר") }
         }
     }
 }

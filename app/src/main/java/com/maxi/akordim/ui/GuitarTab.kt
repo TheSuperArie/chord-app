@@ -50,16 +50,16 @@ import com.maxi.akordim.music.Voicing
 
 @Composable
 fun GuitarTab(vm: AppViewModel, a: SongAnalysis) {
-    val shownUsage = vm.usageShown(a)
+    val shownUsage = vm.usageSounding(a)
     @Suppress("UNUSED_VARIABLE") val ready = vm.guitarVersion // recompose when shapes are ready
     val suggested = vm.suggestedCapo
     val choice = remember { mutableStateMapOf<Chord, Int>() } // shape chord -> voicing index
-    val sp = vm.spelling
-    val shapeSpelling = a.key.transpose(vm.transpose - vm.capo).spelling
+    val sp = vm.soundingSpelling
+    val shapeSpelling = vm.spelling
 
     val seg = vm.segmentIndex
-    val current = if (seg >= 0) vm.shown(a.segments[seg].chord) else null
-    val next = if (seg + 1 in a.segments.indices) vm.shown(a.segments[seg + 1].chord) else null
+    val current = if (seg >= 0) vm.sounding(a.segments[seg].chord) else null
+    val next = if (seg + 1 in a.segments.indices) vm.sounding(a.segments[seg + 1].chord) else null
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 100.dp),

@@ -10,21 +10,24 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/** "Night stage" palette: deep indigo, coral for what is playing, mint for highlights. */
+/**
+ * "Night stage" palette, tuned for small low-contrast screens: near-black blue background,
+ * clearly lighter cards, bright text, warm amber for what is playing, turquoise for highlights.
+ */
 object Stage {
-    val Paper = Color(0xFF13142A)      // screen background
-    val PaperDark = Color(0xFF2B2E52)  // borders, tracks, secondary surfaces
-    val Cream = Color(0xFF1E2040)      // cards
-    val Bar = Color(0xFF0A0B1A)        // top / bottom bars
-    val Ink = Color(0xFFEEEDFF)        // main text
-    val InkSoft = Color(0xFF9C9FCB)    // secondary text
-    val Mustard = Color(0xFF3DDBB3)    // mint highlight
-    val Rust = Color(0xFFFF6B5A)       // coral accent
-    val Olive = Color(0xFF8BE07B)
-    val Teal = Color(0xFF7DB2FF)       // chords you edited
-    val OnAccent = Color(0xFF14101C)
-    val KeyWhite = Color(0xFFF4F3FF)
-    val KeyBlack = Color(0xFF0A0B1A)
+    val Paper = Color(0xFF0E1018)      // screen background
+    val PaperDark = Color(0xFF363D58)  // borders, tracks, secondary surfaces
+    val Cream = Color(0xFF1B2030)      // cards
+    val Bar = Color(0xFF07080D)        // top / bottom bars
+    val Ink = Color(0xFFF5F6FA)        // main text
+    val InkSoft = Color(0xFFB6BCD2)    // secondary text
+    val Mustard = Color(0xFF35D6C0)    // turquoise highlight
+    val Rust = Color(0xFFFFB23F)       // amber accent
+    val Olive = Color(0xFF9BE36B)
+    val Teal = Color(0xFF6FB4FF)       // chords you edited
+    val OnAccent = Color(0xFF10121A)
+    val KeyWhite = Color(0xFFF5F6FA)
+    val KeyBlack = Color(0xFF07080D)
 }
 
 private val Serif = FontFamily.SansSerif
@@ -82,10 +85,10 @@ fun AkordimTheme(content: @Composable () -> Unit) {
 
 
 fun sectionColor(kind: com.maxi.akordim.analysis.SectionKind): Color = when (kind) {
-    com.maxi.akordim.analysis.SectionKind.CHORUS -> Stage.Rust
-    com.maxi.akordim.analysis.SectionKind.VERSE -> Color(0xFF7DB2FF)
-    com.maxi.akordim.analysis.SectionKind.PRECHORUS -> Color(0xFFB98CFF)
-    com.maxi.akordim.analysis.SectionKind.BRIDGE -> Color(0xFFFFC857)
-    com.maxi.akordim.analysis.SectionKind.INTRO, com.maxi.akordim.analysis.SectionKind.OUTRO -> Color(0xFF9C9FCB)
+    com.maxi.akordim.analysis.SectionKind.CHORUS -> Color(0xFFFF7A6B)
+    com.maxi.akordim.analysis.SectionKind.VERSE -> Color(0xFF6FB4FF)
+    com.maxi.akordim.analysis.SectionKind.PRECHORUS -> Color(0xFFC39BFF)
+    com.maxi.akordim.analysis.SectionKind.BRIDGE -> Color(0xFFF58BC8)
+    com.maxi.akordim.analysis.SectionKind.INTRO, com.maxi.akordim.analysis.SectionKind.OUTRO -> Color(0xFF9AA3BF)
     com.maxi.akordim.analysis.SectionKind.PART -> Stage.Mustard
 }

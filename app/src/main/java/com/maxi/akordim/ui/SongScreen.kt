@@ -98,7 +98,7 @@ fun SongScreen(vm: AppViewModel) {
                     val key = a.key.transpose(vm.transpose)
                     Text(
                         "סולם ${key.name()} · ${a.bpm.toInt()} BPM · ${a.beatsPerBar}/4" +
-                            (if (vm.capo > 0) " · קאפו ${vm.capo}" else ""),
+                            (if (vm.capo > 0) " · קאפו ${vm.capo} (צורות ${key.transpose(-vm.capo).name()})" else ""),
                         style = MaterialTheme.typography.labelMedium, color = Stage.Mustard
                     )
                 }
