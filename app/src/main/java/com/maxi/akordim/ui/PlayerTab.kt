@@ -65,6 +65,7 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
     val items = remember(a) { chartItems(a, barList) }
     val b2s = remember(a) { beatToSegment(a) }
     var dialogSeg by remember { mutableIntStateOf(-1) }
+    var dialogBeat by remember { mutableIntStateOf(-1) } // the beat that was tapped, -1 = whole chord
     val listState = rememberLazyListState()
 
     val seg = vm.segmentIndex
@@ -91,7 +92,7 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(enabled = seg >= 0) { dialogSeg = seg },
+                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(enabled = seg >= 0) { dialogBeat = -1; dialogSeg = seg },
             ) {
                 val curSec = a.sections.getOrNull(a.sectionOfBeat(vm.beatIndex.coerceAtLeast(0)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -156,7 +157,7 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
                                     BarCell(
                                         modifier = Modifier.weight(1f),
                                         a = a, vm = vm, bar = bar, b2s = b2s, color = color,
-                                        onChord = { dialogSeg = it },
+                                        onChord = { s, beat -> dialogBeat = beat; dialogSeg = s },
                                     )
                                 }
                                 if (item.bars.size == 1) Spacer(Modifier.weight(1f))
@@ -185,7 +186,7 @@ fun PlayerTab(vm: AppViewModel, a: SongAnalysis) {
     }
 
     if (dialogSeg >= 0 && dialogSeg < a.segments.size) {
-        ChordDialog(vm, a, dialogSeg, onDismiss = { dialogSeg = -1 })
+        ChordDialog(vm, a, dialogSeg, dialogBeat, onDismiss = { dialogSeg = -1 })
     }
 }
 
@@ -208,7 +209,7 @@ private fun BeatDots(a: SongAnalysis, beat: Int) {
 
 @Composable
 private fun BarCell(
-    modifier: Modifier, a: SongAnalysis, vm: AppViewModel, bar: List<Int>, b2s: IntArray, color: Color, onChord: (Int) -> Unit,
+    modifier: Modifier, a: SongAnalysis, vm: AppViewModel, bar: List<Int>, b2s: IntArray, color: Color, onChord: (Int, Int) -> Unit,
 ) {
     val playingHere = vm.beatIndex in bar
     val inLoop = vm.loopEnd > 0 && bar.isNotEmpty() && a.beats[bar.first()] >= vm.loopStart - 0.05 && a.beats[bar.first()] < vm.loopEnd - 0.05
@@ -234,7 +235,7 @@ private fun BarCell(
             Box(
                 Modifier.weight(1f).fillMaxHeight()
                     .background(if (isNow) Stage.Mustard.copy(alpha = 0.55f) else Color.Transparent)
-                    .clickable(enabled = s >= 0) { onChord(s) },
+                    .clickable(enabled = s >= 0) { onChord(s, b) },
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight(0.4f).background(Stage.PaperDark).align(Alignment.CenterStart))

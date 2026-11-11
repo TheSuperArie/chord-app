@@ -117,7 +117,9 @@ data class MusicalKey(val tonic: Int, val minor: Boolean) {
             c(0, Quality.MAJ), c(0, Quality.MAJ7), c(2, Quality.MIN), c(2, Quality.MIN7),
             c(4, Quality.MIN), c(4, Quality.MIN7), c(5, Quality.MAJ), c(5, Quality.MAJ7),
             c(7, Quality.MAJ), c(7, Quality.DOM7), c(9, Quality.MIN), c(9, Quality.MIN7),
-            c(11, Quality.DIM), c(11, Quality.HDIM), c(2, Quality.SUS2), c(7, Quality.SUS4), c(0, Quality.SUS4)
+            c(11, Quality.DIM), c(11, Quality.HDIM), c(2, Quality.SUS2), c(7, Quality.SUS4), c(0, Quality.SUS4),
+            // the major chord on the third degree (E in C major) leads to the relative minor
+            c(4, Quality.MAJ), c(4, Quality.DOM7)
         ) else listOf(
             c(0, Quality.MIN), c(0, Quality.MIN7), c(2, Quality.DIM), c(2, Quality.HDIM),
             c(3, Quality.MAJ), c(3, Quality.MAJ7), c(5, Quality.MIN), c(5, Quality.MIN7),

@@ -44,20 +44,25 @@ import com.maxi.akordim.music.Quality
 
 /**
  * Tapping a chord: shows the 4 most likely alternatives (plus a manual picker) and lets the
- * user replace it here or everywhere it appears.
+ * user replace it here or everywhere it appears. When a beat in the middle of the chord was
+ * tapped ([beat]), the change can apply from that beat only, leaving the start untouched.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> Unit) {
+fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, beat: Int, onDismiss: () -> Unit) {
     val seg = a.segments[index]
     val sp = vm.spelling
     val current = vm.shown(seg.chord)
     var everywhere by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf(false) }
     val count = a.segments.count { it.chord == seg.chord }
+    val canSplit = beat > seg.startBeat && beat < seg.endBeat && beat < a.beats.size
+    var fromHere by remember { mutableStateOf(canSplit) }
+    val startTime = if (canSplit && fromHere) a.beats[beat] else seg.start
 
     fun apply(original: Chord) {
-        vm.replaceChord(index, original, everywhere)
+        if (canSplit && fromHere) vm.replaceChord(index, original, false, beat)
+        else vm.replaceChord(index, original, everywhere)
         onDismiss()
     }
 
@@ -66,7 +71,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
         containerColor = Stage.Cream,
         title = {
             Column {
-                Text("החלפת אקורד · ${formatTime(seg.start)}", style = MaterialTheme.typography.labelMedium, color = Stage.InkSoft)
+                Text("החלפת אקורד · ${formatTime(startTime)}", style = MaterialTheme.typography.labelMedium, color = Stage.InkSoft)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(current.name(sp), style = MaterialTheme.typography.headlineMedium, color = Stage.Rust)
                     Spacer(Modifier.width(8.dp))
@@ -76,6 +81,20 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
         },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (canSplit) {
+                    Text("מה להחליף?", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Choice("רק מכאן והלאה", fromHere) { fromHere = true }
+                        Choice("את כל האקורד", !fromHere) { fromHere = false }
+                    }
+                    Text(
+                        if (fromHere) "ההתחלה נשארת ${current.name(sp)}, ומהפעימה שלחצת עליה עד סוף האקורד יוחלף."
+                        else "יוחלף מתחילת האקורד ועד סופו.",
+                        style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text("אולי זה:", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(6.dp))
                 seg.alternatives.distinctBy { vm.shown(it) }.filter { vm.shown(it) != current }.take(4).forEach { alt ->
@@ -95,7 +114,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
                         }
                     }
                 }
-                if (count > 1) {
+                if (count > 1 && !(canSplit && fromHere)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { everywhere = !everywhere }) {
                         Checkbox(
                             checked = everywhere, onCheckedChange = { everywhere = it },
@@ -116,7 +135,7 @@ fun ChordDialog(vm: AppViewModel, a: SongAnalysis, index: Int, onDismiss: () -> 
         },
         confirmButton = {
             TextButton(onClick = {
-                vm.seekTo(seg.start)
+                vm.seekTo(startTime)
                 if (!vm.isPlaying) vm.togglePlay()
                 onDismiss()
             }) { Text("נגן מכאן") }

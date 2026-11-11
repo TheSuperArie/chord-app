@@ -43,7 +43,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         private val COMPLEXITY = mapOf(
             Quality.MAJ to 0.0, Quality.MIN to 0.0,
             Quality.DOM7 to -0.025, Quality.MIN7 to -0.03, Quality.MAJ7 to -0.035,
-            Quality.SUS4 to -0.045, Quality.SUS2 to -0.05,
+            Quality.SUS4 to -0.07, Quality.SUS2 to -0.075,
             Quality.DIM to -0.06, Quality.AUG to -0.08, Quality.HDIM to -0.06,
         )
 
@@ -140,11 +140,12 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             key = refined
             path = viterbi(processed, bassNorm, beatEnergy, medEnergy, key, bpb, phase)
         }
-        refineQualities(path, processed, bassNorm, key)
+        absorbPassingBass(path, processed, bpb, phase)
+        refineQualities(path, processed, key)
         val keyConf = keyConfidence(keyScores, path, key)
 
         progress(0.9f, "מזהה בס")
-        val segments = buildSegments(path, processed, beatBass, bassNorm, beatEnergy, medEnergy, beats, key)
+        val segments = buildSegments(path, processed, beatBass, bassNorm, beatEnergy, medEnergy, beats, key, bpb, phase)
         progress(0.95f, "מזהה בית ופזמון")
         val sections = try {
             SectionFinder.find(processed, path, beatEnergy, beats, bpb, phase)
@@ -766,12 +767,62 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
     }
 
     /**
-     * Second look at every chord run: the root is kept, but the flavour (7, maj7, sus...) is
-     * chosen again from the harmony of the whole run, which is far steadier than single beats.
+     * A bass that walks towards the next bar (usually on beat 3 or 4) can fool the recogniser
+     * into a short new chord. If such a short run in the tail of a bar is explained almost as
+     * well by the chord before it once the bass is ignored, it is that chord still sounding.
      */
-    private fun refineQualities(path: IntArray, chroma: Array<DoubleArray>, bassN: Array<DoubleArray>, key: MusicalKey) {
+    private fun absorbPassingBass(path: IntArray, chroma: Array<DoubleArray>, bpb: Int, phase: Int) {
+        val nb = path.size
+        fun isDown(b: Int) = b >= phase && (b - phase) % bpb == 0
+        var b = 0
+        while (b < nb) {
+            var e = b + 1
+            while (e < nb && path[e] == path[b]) e++
+            val cur = path[b]
+            val prev = if (b > 0) path[b - 1] else -1
+            if (cur >= 0 && prev >= 0 && VOCAB[cur].root != VOCAB[prev].root &&
+                !isDown(b) && e - b < bpb && (e >= nb || isDown(e))
+            ) {
+                var sCur = 0.0
+                var sPrev = 0.0
+                for (k in b until e) {
+                    sCur += dot(chroma[k], templates[cur]); sPrev += dot(chroma[k], templates[prev])
+                }
+                if (sPrev >= sCur - 0.05 * (e - b)) for (k in b until e) path[k] = prev
+            }
+            b = e
+        }
+    }
+
+    private val MAJOR_FAMILY = setOf(Quality.MAJ, Quality.DOM7, Quality.MAJ7, Quality.AUG)
+    private val MINOR_FAMILY = setOf(Quality.MIN, Quality.MIN7, Quality.DIM, Quality.HDIM)
+
+    /**
+     * Second look at every chord run: the root is kept, but major / minor and the flavour
+     * (7, maj7, sus...) are chosen again from the harmony of the whole run, which is far
+     * steadier than single beats. When the third is barely heard (mostly root and fifth),
+     * minor is only chosen on clear evidence; otherwise the way the same root is played in
+     * the rest of the song decides, then the key, then plain major.
+     */
+    private fun refineQualities(path: IntArray, chroma: Array<DoubleArray>, key: MusicalKey) {
         val dia = key.diatonic().toSet()
         val nb = path.size
+        // how each root is played across the song: +1 major, -1 minor, 0 unclear
+        val sumMaj = DoubleArray(12)
+        val sumMin = DoubleArray(12)
+        for (b in 0 until nb) {
+            val idx = path[b]
+            if (idx < 0) continue
+            val r = VOCAB[idx].root
+            sumMaj[r] += chroma[b][Notes.pc(r + 4)]; sumMin[r] += chroma[b][Notes.pc(r + 3)]
+        }
+        val songMode = IntArray(12) { r ->
+            when {
+                sumMaj[r] > 1.25 * sumMin[r] -> 1
+                sumMin[r] > 1.25 * sumMaj[r] -> -1
+                else -> 0
+            }
+        }
         var b = 0
         while (b < nb) {
             var e = b + 1
@@ -782,11 +833,35 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                 for (k in b until e) for (p in 0 until 12) avg[p] += chroma[k][p]
                 normalize(avg)
                 val root = VOCAB[idx].root
-                var best = idx
+                val eRoot = avg[root]
+                val e3M = avg[Notes.pc(root + 4)]
+                val e3m = avg[Notes.pc(root + 3)]
+                val third = max(e3M, e3m)
+                val strong = third > 0.3 * eRoot
+                val mode = when {
+                    strong && e3m > 1.3 * e3M -> -1
+                    strong && e3M > 1.3 * e3m -> 1
+                    songMode[root] != 0 -> songMode[root]
+                    Chord(root, Quality.MIN) in dia && Chord(root, Quality.MAJ) !in dia -> -1
+                    else -> 1
+                }
+                // sus only when the 4th / 2nd really replaces the third
+                val e4 = avg[Notes.pc(root + 5)]
+                val e2 = avg[Notes.pc(root + 2)]
+                val sus4ok = e4 > 1.5 * third && e4 > 0.4 * eRoot
+                val sus2ok = e2 > 1.5 * third && e2 > 0.4 * eRoot
+                var best = -1
                 var bestS = Double.NEGATIVE_INFINITY
                 for (i in VOCAB.indices) {
                     val c = VOCAB[i]
                     if (c.root != root) continue
+                    val ok = when (c.quality) {
+                        Quality.SUS4 -> sus4ok
+                        Quality.SUS2 -> sus2ok
+                        in MAJOR_FAMILY -> mode > 0
+                        else -> mode < 0
+                    }
+                    if (!ok) continue
                     var sc = dot(avg, templates[i]) + 0.7 * COMPLEXITY.getValue(c.quality)
                     if (c in dia) sc += 0.02
                     if (i == idx) sc += 0.01
@@ -794,7 +869,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                         bestS = sc; best = i
                     }
                 }
-                for (k in b until e) path[k] = best
+                if (best >= 0) for (k in b until e) path[k] = best
             }
             b = e
         }
@@ -802,7 +877,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
     private fun buildSegments(
         path: IntArray, chroma: Array<DoubleArray>, bassRaw: Array<DoubleArray>, bassN: Array<DoubleArray>,
-        energy: DoubleArray, medEnergy: Double, beats: List<Double>, key: MusicalKey,
+        energy: DoubleArray, medEnergy: Double, beats: List<Double>, key: MusicalKey, bpb: Int, phase: Int,
     ): List<ChordSegment> {
         val nb = path.size
         val dia = key.diatonic().toSet()
@@ -829,7 +904,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             }
             val base = VOCAB[idx]
             // Split the run where the bass clearly moves (e.g. Am -> Am/G)
-            val runs = bassRuns(beatBass, b, e, base)
+            val runs = bassRuns(beatBass, b, e, base, bpb, phase)
             for ((rs, re, bassPc) in runs) {
                 var chord = base
                 var rerooted: Chord? = null
@@ -887,7 +962,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
     private data class Run(val start: Int, val end: Int, val bass: Int)
 
-    private fun bassRuns(beatBass: IntArray, b: Int, e: Int, chord: Chord): List<Run> {
+    private fun bassRuns(beatBass: IntArray, b: Int, e: Int, chord: Chord, bpb: Int, phase: Int): List<Run> {
         // bass per beat, unclear beats inherit the chord root
         val bassSeq = IntArray(e - b) { val v = beatBass[b + it]; if (v < 0) chord.root else v }
         if (bassSeq.isNotEmpty() && bassSeq[0] == chord.root) {
@@ -921,11 +996,14 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                 }
             }
         }
-        // join neighbours with the same bass after absorption
+        // join neighbours with the same bass after absorption; a bass that moves in the
+        // middle of a bar is on its way to the next chord, not a new slash chord
         val joined = ArrayList<Run>()
         for (r in runs) {
             val l = joined.lastOrNull()
-            if (l != null && l.bass == r.bass) joined[joined.size - 1] = Run(l.start, r.end, l.bass) else joined.add(r)
+            val midBar = !(r.start >= phase && (r.start - phase) % bpb == 0)
+            if (l != null && midBar) joined[joined.size - 1] = Run(l.start, r.end, l.bass)
+            else if (l != null && l.bass == r.bass) joined[joined.size - 1] = Run(l.start, r.end, l.bass) else joined.add(r)
         }
         return joined
     }

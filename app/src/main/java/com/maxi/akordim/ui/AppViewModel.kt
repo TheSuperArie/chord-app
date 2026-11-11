@@ -420,9 +420,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ------------------------------------------------------------ editing chords
 
-    fun replaceChord(index: Int, newChord: Chord, everywhere: Boolean) {
+    /**
+     * Replace a chord. With [fromBeat] inside the segment, only the part from that beat to
+     * the end of the chord changes (e.g. C for half a bar, then C7), the start stays as it was.
+     */
+    fun replaceChord(index: Int, newChord: Chord, everywhere: Boolean, fromBeat: Int = -1) {
         val a = analysis ?: return
         val target = a.segments[index]
+        if (fromBeat > target.startBeat && fromBeat < target.endBeat && fromBeat < a.beats.size) {
+            val t = a.beats[fromBeat]
+            val split = ArrayList(a.segments)
+            split[index] = target.copy(endBeat = fromBeat, end = t)
+            split.add(index + 1, target.copy(startBeat = fromBeat, start = t, chord = newChord))
+            updateSegments(a, split)
+            return
+        }
         val segs = a.segments.mapIndexed { i, s ->
             if (i == index || (everywhere && s.chord == target.chord)) s.copy(chord = newChord) else s
         }
@@ -436,8 +448,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun updateSegments(a: SongAnalysis, segs: List<com.maxi.akordim.analysis.ChordSegment>) {
-        val updated = a.copy(segments = segs)
+        // neighbours that became the same chord again are one chord
+        val merged = ArrayList<com.maxi.akordim.analysis.ChordSegment>()
+        for (s in segs) {
+            val last = merged.lastOrNull()
+            if (last != null && last.chord == s.chord && last.detected == s.detected && last.endBeat == s.startBeat) {
+                merged[merged.size - 1] = last.copy(endBeat = s.endBeat, end = s.end)
+            } else merged.add(s)
+        }
+        val updated = a.copy(segments = merged)
         analysis = updated
+        segmentIndex = updated.segmentAt(position)
         warmGuitar()
         song?.let { s -> viewModelScope.launch(Dispatchers.IO) { store.saveAnalysis(s.key, updated) } }
     }
