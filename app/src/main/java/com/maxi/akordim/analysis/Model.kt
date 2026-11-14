@@ -89,7 +89,7 @@ data class SongAnalysis(
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
-        put("v", 6)
+        put("v", com.maxi.akordim.data.SongStore.ENGINE_VERSION)
         put("duration", durationSec)
         put("bpm", bpm)
         put("bpb", beatsPerBar)

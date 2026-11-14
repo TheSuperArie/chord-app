@@ -107,10 +107,73 @@ class SongStore(private val context: Context) {
     fun loadAnalysis(key: String): SongAnalysis? = try {
         val f = File(dir, "$key.json")
         val o = if (f.exists()) JSONObject(f.readText()) else null
-        // older engine versions are re-analysed with the improved recogniser
-        if (o != null && o.optInt("v") == 6) SongAnalysis.fromJson(o) else null
+        // older engine versions are re-analysed with the improved recogniser -
+        // except songs the user corrected by hand: their work is never thrown away
+        when {
+            o == null -> null
+            o.optInt("v") == ENGINE_VERSION -> SongAnalysis.fromJson(o)
+            else -> SongAnalysis.fromJson(o).takeIf { a -> a.segments.any { it.chord != it.detected } }
+        }
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * All songs with chords the user fixed by hand, as one JSON document: the corrected chord
+     * timeline next to what the recogniser found, so the engine can be measured and tuned on
+     * real songs. Returns the text and the number of songs in it.
+     */
+    fun exportCorrections(): Pair<String, Int> {
+        val songs = JSONArray()
+        for (r in recents()) {
+            val a = try {
+                val f = File(dir, "${r.key}.json")
+                if (f.exists()) SongAnalysis.fromJson(JSONObject(f.readText())) else null
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            val edited = a.segments.count { it.chord != it.detected }
+            if (edited == 0) continue
+            val (fileName, size) = try { describe(Uri.parse(r.uri)) } catch (_: Exception) { r.title to 0L }
+            songs.put(JSONObject().apply {
+                put("title", r.title)
+                put("file", fileName)
+                put("size", size)
+                put("duration", a.durationSec)
+                put("key", a.key.name())
+                put("bpm", a.bpm)
+                put("bpb", a.beatsPerBar)
+                put("downbeatPhase", a.downbeatPhase)
+                put("tuning", a.tuningCents)
+                put("edited", edited)
+                put("beats", JSONArray().also { b -> a.beats.forEach { b.put(Math.round(it * 1000) / 1000.0) } })
+                put("chords", JSONArray().also { arr ->
+                    a.segments.forEach { s ->
+                        arr.put(JSONObject().apply {
+                            put("start", Math.round(s.start * 1000) / 1000.0)
+                            put("end", Math.round(s.end * 1000) / 1000.0)
+                            put("sb", s.startBeat); put("eb", s.endBeat)
+                            put("chord", s.chord.name()); put("c", s.chord.encode())
+                            put("detected", s.detected.name()); put("d", s.detected.encode())
+                            put("fixed", s.chord != s.detected)
+                        })
+                    }
+                })
+            })
+        }
+        val doc = JSONObject().apply {
+            put("app", "akordim")
+            put("format", 1)
+            put("engine", ENGINE_VERSION)
+            put("exported", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()))
+            put("songs", songs)
+        }
+        return doc.toString(1) to songs.length()
+    }
+
+    companion object {
+        /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
+        const val ENGINE_VERSION = 6
     }
 
     fun saveAnalysis(key: String, a: SongAnalysis) {

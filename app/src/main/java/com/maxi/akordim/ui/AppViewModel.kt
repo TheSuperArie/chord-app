@@ -146,6 +146,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         recents = store.recents()
     }
 
+    /** Builds the corrections export (text, number of songs) off the main thread. */
+    fun exportCorrections(done: (String, Int) -> Unit) {
+        viewModelScope.launch {
+            val (text, n) = withContext(Dispatchers.IO) { store.exportCorrections() }
+            done(text, n)
+        }
+    }
+
     fun removeRecent(r: Recent) {
         store.removeRecent(r.key); refreshRecents()
     }

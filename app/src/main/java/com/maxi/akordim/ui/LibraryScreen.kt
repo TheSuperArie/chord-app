@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -33,7 +34,10 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import android.widget.Toast
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,6 +81,40 @@ fun LibraryScreen(vm: AppViewModel) {
         if (hasPermission && !vm.deviceSongsLoaded) vm.loadDeviceSongs()
     }
     var query by remember { mutableStateOf("") }
+    // corrections export: null = closed, otherwise the prepared text and song count
+    var export by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val exportName = remember(export) { correctionsFileName() }
+    export?.let { (text, n) ->
+        AlertDialog(
+            onDismissRequest = { export = null },
+            containerColor = Stage.Cream,
+            title = { Text("ייצוא תיקונים") },
+            text = {
+                Text(
+                    if (n == 0) "עוד אין שירים שתיקנת בהם אקורדים. פותחים שיר, עוברים עליו ומתקנים מה שצריך — ואז מייצאים מכאן."
+                    else "נמצאו $n שירים עם תיקונים. הקובץ כולל את האקורדים שתיקנת לצד מה שהזיהוי מצא, כדי לשפר את מנוע הזיהוי.\n\n" +
+                        "חשוב: לשלוח יחד איתו גם את קבצי השירים עצמם.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                if (n > 0) TextButton(onClick = {
+                    val where = saveToDownloads(context, exportName, text)
+                    Toast.makeText(context, if (where != null) "נשמר: $where" else "השמירה נכשלה", Toast.LENGTH_LONG).show()
+                    if (where != null) export = null
+                }) { Text("שמירה בהורדות") }
+            },
+            dismissButton = {
+                Row {
+                    if (n > 0) TextButton(onClick = {
+                        if (!shareTextFile(context, exportName, text))
+                            Toast.makeText(context, "אין אפליקציה לשליחה — אפשר לשמור בהורדות", Toast.LENGTH_SHORT).show()
+                    }) { Text("שליחה") }
+                    TextButton(onClick = { export = null }) { Text("סגור") }
+                }
+            }
+        )
+    }
 
     Column(Modifier.fillMaxSize().background(Stage.Paper)) {
         // Header
@@ -127,6 +165,19 @@ fun LibraryScreen(vm: AppViewModel) {
                         onClick = { vm.openRecent(r) },
                         onRemove = { vm.removeRecent(r) },
                     )
+                }
+            }
+            if (vm.recents.isNotEmpty()) {
+                item {
+                    OutlinedButton(
+                        onClick = { vm.exportCorrections { t, n -> export = t to n } },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Icon(Icons.Filled.Upload, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ייצוא תיקונים לשיפור הזיהוי")
+                    }
                 }
             }
             item { SectionTitle(Icons.Filled.LibraryMusic, "שירים וסרטונים בטלפון") }
