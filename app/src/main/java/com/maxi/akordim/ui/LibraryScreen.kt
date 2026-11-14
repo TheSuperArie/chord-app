@@ -125,6 +125,17 @@ fun LibraryScreen(vm: AppViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard, modifier = Modifier.weight(1f))
                 Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Stage.Cream)
+                        .clickable { vm.exportCorrections { t, n -> export = t to n } }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Upload, null, tint = Stage.Mustard, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("ייצוא תיקונים", style = MaterialTheme.typography.labelLarge, color = Stage.Ink)
+                }
+                Spacer(Modifier.width(8.dp))
+                Row(
                     Modifier.clip(RoundedCornerShape(50)).background(Stage.Cream).clickable { vm.showTools = true }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -165,19 +176,6 @@ fun LibraryScreen(vm: AppViewModel) {
                         onClick = { vm.openRecent(r) },
                         onRemove = { vm.removeRecent(r) },
                     )
-                }
-            }
-            if (vm.recents.isNotEmpty()) {
-                item {
-                    OutlinedButton(
-                        onClick = { vm.exportCorrections { t, n -> export = t to n } },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                    ) {
-                        Icon(Icons.Filled.Upload, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("ייצוא תיקונים לשיפור הזיהוי")
-                    }
                 }
             }
             item { SectionTitle(Icons.Filled.LibraryMusic, "שירים וסרטונים בטלפון") }
