@@ -162,3 +162,28 @@ data class SongAnalysis(
         }
     }
 }
+
+/**
+ * What the recogniser hears on every beat, before it decides on chords: treble pitch-class
+ * strengths, bass pitch-class strengths and loudness. Exported so the engine can be tuned
+ * on real songs without sending the audio.
+ */
+class BeatFeatures(
+    val beats: DoubleArray,
+    val chroma: List<DoubleArray>,
+    val bass: List<DoubleArray>,
+    val energy: DoubleArray,
+    val tuning: Double,
+) {
+    fun toJson(): JSONObject {
+        fun r(v: Double) = Math.round(v * 10000) / 10000.0
+        fun rows(m: List<DoubleArray>) = JSONArray().also { a -> m.forEach { row -> a.put(JSONArray().also { b -> row.forEach { b.put(r(it)) } }) } }
+        return JSONObject().apply {
+            put("beats", JSONArray().also { a -> beats.forEach { a.put(Math.round(it * 1000) / 1000.0) } })
+            put("chroma", rows(chroma))
+            put("bass", rows(bass))
+            put("energy", JSONArray().also { a -> energy.forEach { a.put(r(it)) } })
+            put("tuning", tuning)
+        }
+    }
+}

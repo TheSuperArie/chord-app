@@ -81,19 +81,19 @@ fun LibraryScreen(vm: AppViewModel) {
         if (hasPermission && !vm.deviceSongsLoaded) vm.loadDeviceSongs()
     }
     var query by remember { mutableStateOf("") }
-    // corrections export: null = closed, otherwise the prepared text and song count
-    var export by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    // export for engine tuning: null = closed, otherwise text, song count, songs without sound data
+    var export by remember { mutableStateOf<Triple<String, Int, Int>?>(null) }
     val exportName = remember(export) { correctionsFileName() }
-    export?.let { (text, n) ->
+    export?.let { (text, n, missing) ->
         AlertDialog(
             onDismissRequest = { export = null },
             containerColor = Stage.Cream,
-            title = { Text("ייצוא תיקונים") },
+            title = { Text("ייצוא שירים לשיפור הזיהוי") },
             text = {
                 Text(
-                    if (n == 0) "עוד אין שירים שתיקנת בהם אקורדים. פותחים שיר, עוברים עליו ומתקנים מה שצריך — ואז מייצאים מכאן."
-                    else "נמצאו $n שירים עם תיקונים. הקובץ כולל את האקורדים שתיקנת לצד מה שהזיהוי מצא, כדי לשפר את מנוע הזיהוי.\n\n" +
-                        "חשוב: לשלוח יחד איתו גם את קבצי השירים עצמם.",
+                    if (n == 0) "עוד אין שירים מנותחים. פותחים שירים — כל שיר שנפתח נכנס לייצוא."
+                    else "ייצוא $n שירים: האקורדים שהאפליקציה זיהתה, מה שתיקנת ידנית, ונתוני הצליל של כל פעימה." +
+                        (if (missing > 0) "\n\nב-$missing שירים עוד חסרים נתוני הצליל. כדי להשלים: לפתוח כל אחד מהם פעם אחת ולהשאיר פתוח כחצי דקה, ואז לייצא שוב." else ""),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -126,13 +126,13 @@ fun LibraryScreen(vm: AppViewModel) {
                 Text("אקורדים", style = MaterialTheme.typography.headlineMedium, color = Stage.Mustard, modifier = Modifier.weight(1f))
                 Row(
                     Modifier.clip(RoundedCornerShape(50)).background(Stage.Cream)
-                        .clickable { vm.exportCorrections { t, n -> export = t to n } }
+                        .clickable { vm.exportCorrections { t, n, m -> export = Triple(t, n, m) } }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Filled.Upload, null, tint = Stage.Mustard, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("ייצוא תיקונים", style = MaterialTheme.typography.labelLarge, color = Stage.Ink)
+                    Text("ייצוא שירים", style = MaterialTheme.typography.labelLarge, color = Stage.Ink)
                 }
                 Spacer(Modifier.width(8.dp))
                 Row(

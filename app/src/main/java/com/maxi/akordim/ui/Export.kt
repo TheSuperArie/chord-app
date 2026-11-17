@@ -11,7 +11,7 @@ import java.io.File
 
 /** File name for an export of the user's chord corrections. */
 fun correctionsFileName(): String =
-    "akordim-tikunim-" + java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", java.util.Locale.US).format(java.util.Date()) + ".json"
+    "akordim-shirim-" + java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", java.util.Locale.US).format(java.util.Date()) + ".json"
 
 /** Saves [text] to Downloads/Akordim. Returns where it went (for the message), or null. */
 fun saveToDownloads(context: Context, name: String, text: String): String? = try {

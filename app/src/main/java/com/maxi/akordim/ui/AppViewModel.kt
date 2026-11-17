@@ -112,6 +112,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var clickOn by mutableStateOf(false)
 
     private var analysisJob: Job? = null
+    private var featureJob: Job? = null
 
     init {
         player.addListener(object : Player.Listener {
@@ -146,11 +147,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         recents = store.recents()
     }
 
-    /** Builds the corrections export (text, number of songs) off the main thread. */
-    fun exportCorrections(done: (String, Int) -> Unit) {
+    /** Builds the export (text, number of songs, songs without sound data) off the main thread. */
+    fun exportCorrections(done: (String, Int, Int) -> Unit) {
         viewModelScope.launch {
-            val (text, n) = withContext(Dispatchers.IO) { store.exportCorrections() }
-            done(text, n)
+            val (text, n, missing) = withContext(Dispatchers.IO) { store.exportCorrections() }
+            done(text, n, missing)
         }
     }
 
@@ -193,7 +194,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             analysis = cached
             saveRecent()
             warmGuitar()
+            if (!store.hasFeatures(key)) collectFeatures(uri, key)
         } else analyze(uri, key)
+    }
+
+    /**
+     * Songs analysed before sound data was kept (or kept as-is because of hand fixes):
+     * listen again quietly in the background just to record what is heard on each beat.
+     * The chords on screen are not touched.
+     */
+    private fun collectFeatures(uri: Uri, key: String) {
+        featureJob?.cancel()
+        featureJob = viewModelScope.launch(Dispatchers.Default) {
+            try {
+                val audio = AudioDecoder.decode(getApplication(), uri, cancelled = { !isActive }) { }
+                if (!isActive) return@launch
+                val an = Analyzer { _, _ -> }
+                an.analyze(audio)
+                an.lastFeatures?.let { store.saveFeatures(key, it) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Throwable) {}
+        }
     }
 
     fun reanalyze() {
@@ -212,10 +234,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val audio = AudioDecoder.decode(getApplication(), uri, cancelled = { !isActive }) { p ->
                     progress = 0.35f * p
                 }
-                val result = Analyzer { p, text ->
+                val analyzer = Analyzer { p, text ->
                     progress = 0.35f + 0.65f * p
                     progressText = text
-                }.analyze(audio)
+                }
+                val result = analyzer.analyze(audio)
+                analyzer.lastFeatures?.let { store.saveFeatures(key, it) }
                 // warm up guitar shapes so the guitar tab opens instantly
                 result.chordUsage().forEach { Guitar.voicings(it.first) }
                 store.saveAnalysis(key, result)
@@ -243,6 +267,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun closeSong() {
         analysisJob?.cancel()
         analysisJob = null
+        featureJob?.cancel()
+        featureJob = null
         busy = false
         player.stop()
         player.clearMediaItems()

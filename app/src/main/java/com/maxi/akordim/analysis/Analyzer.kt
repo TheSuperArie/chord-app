@@ -80,6 +80,10 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
     private val templates = VOCAB.map { template(it) }
 
+    /** Per-beat harmony of the last analysed song, kept for exporting (engine tuning). */
+    var lastFeatures: BeatFeatures? = null
+        private set
+
     fun analyze(x: FloatArray): SongAnalysis {
         val t0 = System.currentTimeMillis()
         val duration = x.size.toDouble() / SR
@@ -119,6 +123,9 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         val beatBass = Array(nb) { DoubleArray(12) }
         val beatEnergy = DoubleArray(nb)
         beatFeatures(spec, beats, beatChroma, beatBass, beatEnergy)
+        lastFeatures = BeatFeatures(
+            beats.toDoubleArray(), beatChroma.map { it.copyOf() }, beatBass.map { it.copyOf() }, beatEnergy.copyOf(), tuning,
+        )
         val processed = Array(nb) { b -> processChroma(beatChroma[b]) }
         val bassNorm = Array(nb) { b -> beatBass[b].copyOf().also { normalize(it) } }
         val medEnergy = beatEnergy.sorted().let { if (it.isEmpty()) 1.0 else it[it.size / 2] }

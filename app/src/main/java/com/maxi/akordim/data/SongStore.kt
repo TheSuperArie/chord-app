@@ -119,11 +119,13 @@ class SongStore(private val context: Context) {
     }
 
     /**
-     * All songs with chords the user fixed by hand, as one JSON document: the corrected chord
-     * timeline next to what the recogniser found, so the engine can be measured and tuned on
-     * real songs. Returns the text and the number of songs in it.
+     * Every analysed song in the recent list as one JSON document: the chord timeline (with
+     * what the user fixed by hand marked) and, when available, the per-beat harmony the
+     * recogniser heard, so the engine can be measured and tuned on real songs.
+     * Returns the text, the number of songs and how many of them still lack the sound data.
      */
-    fun exportCorrections(): Pair<String, Int> {
+    fun exportCorrections(): Triple<String, Int, Int> {
+        var noFeat = 0
         val songs = JSONArray()
         for (r in recents()) {
             val a = try {
@@ -133,7 +135,13 @@ class SongStore(private val context: Context) {
                 null
             } ?: continue
             val edited = a.segments.count { it.chord != it.detected }
-            if (edited == 0) continue
+            val feat = try {
+                val f = File(dir, "${r.key}.feat.json")
+                if (f.exists()) JSONObject(f.readText()) else null
+            } catch (_: Exception) {
+                null
+            }
+            if (feat == null) noFeat++
             val (fileName, size) = try { describe(Uri.parse(r.uri)) } catch (_: Exception) { r.title to 0L }
             songs.put(JSONObject().apply {
                 put("title", r.title)
@@ -146,6 +154,7 @@ class SongStore(private val context: Context) {
                 put("downbeatPhase", a.downbeatPhase)
                 put("tuning", a.tuningCents)
                 put("edited", edited)
+                if (feat != null) put("features", feat)
                 put("beats", JSONArray().also { b -> a.beats.forEach { b.put(Math.round(it * 1000) / 1000.0) } })
                 put("chords", JSONArray().also { arr ->
                     a.segments.forEach { s ->
@@ -168,12 +177,20 @@ class SongStore(private val context: Context) {
             put("exported", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()))
             put("songs", songs)
         }
-        return doc.toString(1) to songs.length()
+        return Triple(doc.toString(), songs.length(), noFeat)
     }
 
     companion object {
         /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
         const val ENGINE_VERSION = 6
+    }
+
+    fun hasFeatures(key: String) = File(dir, "$key.feat.json").exists()
+
+    fun saveFeatures(key: String, f: com.maxi.akordim.analysis.BeatFeatures) {
+        try {
+            File(dir, "$key.feat.json").writeText(f.toJson().toString())
+        } catch (_: Exception) {}
     }
 
     fun saveAnalysis(key: String, a: SongAnalysis) {
@@ -203,7 +220,7 @@ class SongStore(private val context: Context) {
         val list = recents().filter { it.key != r.key }.toMutableList()
         list.add(0, r)
         val a = JSONArray()
-        list.take(40).forEach {
+        list.take(150).forEach {
             a.put(JSONObject().apply {
                 put("uri", it.uri); put("title", it.title); put("key", it.key); put("opened", it.opened)
                 put("transpose", it.transpose); put("capo", it.capo); put("summary", it.summary)
