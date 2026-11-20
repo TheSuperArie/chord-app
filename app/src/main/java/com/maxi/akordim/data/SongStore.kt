@@ -182,7 +182,7 @@ class SongStore(private val context: Context) {
 
     companion object {
         /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
-        const val ENGINE_VERSION = 7
+        const val ENGINE_VERSION = 8
     }
 
     fun hasFeatures(key: String) = File(dir, "$key.feat.json").exists()

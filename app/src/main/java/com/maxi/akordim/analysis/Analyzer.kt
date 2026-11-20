@@ -149,6 +149,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         }
         absorbPassingBass(path, processed, bpb, phase)
         refineQualities(path, processed, key)
+        findInversions(path, processed, beatBass)
         val keyConf = keyConfidence(keyScores, path, key)
 
         progress(0.9f, "מזהה בס")
@@ -877,6 +878,53 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                     }
                 }
                 if (best >= 0) for (k in b until e) path[k] = best
+            }
+            b = e
+        }
+    }
+
+    /**
+     * A chord run that was named after its bass (root = the loudest bass note) while the notes
+     * above fit a chord that contains that bass clearly better is that chord over the bass:
+     * Ab with F-Ab-C on top is Fm/Ab, "Gdim" with Eb in the harmony is Eb7/G.
+     * Tuned on the exported real songs (tab4u agreement and hand fixes both went up).
+     */
+    private fun findInversions(path: IntArray, chroma: Array<DoubleArray>, bassRaw: Array<DoubleArray>) {
+        val nb = path.size
+        var b = 0
+        while (b < nb) {
+            var e = b + 1
+            while (e < nb && path[e] == path[b]) e++
+            val idx = path[b]
+            if (idx >= 0) {
+                val r = VOCAB[idx].root
+                val bass = DoubleArray(12)
+                for (k in b until e) for (p in 0 until 12) bass[p] += bassRaw[k][p]
+                var loud = 0
+                for (p in 1 until 12) if (bass[p] > bass[loud]) loud = p
+                if (loud == r) {
+                    val avg = DoubleArray(12)
+                    for (k in b until e) for (p in 0 until 12) avg[p] += chroma[k][p]
+                    normalize(avg)
+                    fun score(i: Int) = dot(avg, templates[i]) + COMPLEXITY.getValue(VOCAB[i].quality)
+                    var best = -1
+                    var bestS = Double.NEGATIVE_INFINITY
+                    for (i in VOCAB.indices) {
+                        val c = VOCAB[i]
+                        if (c.root == r || r !in c.pitchClasses) continue
+                        if (c.quality == Quality.SUS4 || c.quality == Quality.SUS2 ||
+                            c.quality == Quality.AUG || c.quality == Quality.DIM
+                        ) continue
+                        val sc = score(i)
+                        if (sc > bestS) {
+                            bestS = sc; best = i
+                        }
+                    }
+                    // plain major / minor chords are trusted more than dim / sus / 7th guesses
+                    val plain = VOCAB[idx].quality == Quality.MAJ || VOCAB[idx].quality == Quality.MIN
+                    val margin = if (plain) 0.08 else 0.02
+                    if (best >= 0 && bestS > score(idx) + margin) for (k in b until e) path[k] = best
+                }
             }
             b = e
         }
