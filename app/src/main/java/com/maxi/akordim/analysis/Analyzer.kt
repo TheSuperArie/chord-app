@@ -915,6 +915,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             for ((rs, re, bassPc) in runs) {
                 var chord = base
                 var rerooted: Chord? = null
+                var slashName: Chord? = null
                 if (bassPc >= 0 && bassPc != base.root) {
                     val bassAvg = DoubleArray(12)
                     for (k in rs until re) for (p in 0 until 12) bassAvg[p] += bassRaw[k][p]
@@ -924,6 +925,9 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                         // Am7 with G in the bass reads better as Am/G
                         val seventh = Notes.pc(base.root + (base.quality.intervals.getOrNull(3) ?: -100))
                         if (base.quality.isSeventh && bassPc == seventh) chord = Chord(base.root, base.quality.triad, bassPc)
+                        // a triad over a bass that completes a standard seventh chord on that bass
+                        // is that chord (B/G# -> G#m7, Am/F# -> F#m7b5, Am/F -> Fmaj7, Bdim/G -> G7)
+                        SlashNaming.seventhOnBass(chord)?.let { s -> slashName = chord; chord = s }
                         // a plain chord built on that bass that fits almost as well (Abm/B -> B,
                         // Am/F -> Fmaj7) is offered as the first alternative
                         val scores = avgScores(rs, re, chroma, bassN, energy, medEnergy, dia)
@@ -936,8 +940,12 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                     }
                 }
                 var sg = segment(rs, re, chord, beats, chroma, bassN, energy, medEnergy, dia, idx)
-                rerooted?.let { r ->
+                rerooted?.takeIf { it != chord }?.let { r ->
                     sg = sg.copy(alternatives = (listOf(r) + sg.alternatives.filter { it != r }).take(4))
+                }
+                // the slash spelling stays one tap away
+                slashName?.let { s ->
+                    sg = sg.copy(alternatives = (listOf(s) + sg.alternatives.filter { it != s && it != chord }).take(4))
                 }
                 out.add(sg)
             }
@@ -968,6 +976,24 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
     }
 
     private data class Run(val start: Int, val end: Int, val bass: Int)
+
+    private object SlashNaming {
+        val SEVENTHS = listOf(Quality.MIN7, Quality.HDIM, Quality.MAJ7, Quality.DOM7)
+
+        /**
+         * A triad over a bass that is not one of its notes, when bass + triad are exactly the
+         * notes of a common seventh chord built on the bass, is named as that chord.
+         */
+        fun seventhOnBass(c: Chord): Chord? {
+            if (!c.hasSlash || c.quality.isSeventh || c.bass in c.pitchClasses) return null
+            val notes = (c.pitchClasses.toSet() + c.bass)
+            for (q in SEVENTHS) {
+                val s = Chord(c.bass, q)
+                if (s.pitchClasses.toSet() == notes) return s
+            }
+            return null
+        }
+    }
 
     private fun bassRuns(beatBass: IntArray, b: Int, e: Int, chord: Chord, bpb: Int, phase: Int): List<Run> {
         // bass per beat, unclear beats inherit the chord root

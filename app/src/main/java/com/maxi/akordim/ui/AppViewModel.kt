@@ -155,6 +155,52 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Bulk pass over the library: (songs done, total, current title), null when idle. */
+    var bulk by mutableStateOf<Triple<Int, Int, String>?>(null)
+        private set
+    private var bulkJob: Job? = null
+
+    /**
+     * Listens to every recent song that lacks sound data or was analysed by an older engine,
+     * one after another, and saves what it hears. Hand-fixed chords are never replaced.
+     */
+    fun completeLibrary(done: () -> Unit) {
+        if (bulkJob?.isActive == true) return
+        featureJob?.cancel()
+        bulk = Triple(0, 0, "")
+        bulkJob = viewModelScope.launch(Dispatchers.Default) {
+            val todo = store.songsNeedingWork()
+            for ((i, r) in todo.withIndex()) {
+                if (!isActive) break
+                withContext(Dispatchers.Main) { bulk = Triple(i, todo.size, r.title) }
+                try {
+                    val audio = AudioDecoder.decode(getApplication(), Uri.parse(r.uri), cancelled = { !isActive }) { }
+                    if (!isActive) break
+                    val an = Analyzer { _, _ -> }
+                    val result = an.analyze(audio)
+                    an.lastFeatures?.let { store.saveFeatures(r.key, it) }
+                    if (store.loadAnalysis(r.key) == null) store.saveAnalysis(r.key, result)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Throwable) {
+                    // a file that moved or cannot be read is skipped
+                }
+                System.gc()
+            }
+            withContext(Dispatchers.Main) {
+                bulk = null
+                refreshRecents()
+                if (isActive) done()
+            }
+        }
+    }
+
+    fun stopBulk() {
+        bulkJob?.cancel()
+        bulkJob = null
+        bulk = null
+    }
+
     fun removeRecent(r: Recent) {
         store.removeRecent(r.key); refreshRecents()
     }

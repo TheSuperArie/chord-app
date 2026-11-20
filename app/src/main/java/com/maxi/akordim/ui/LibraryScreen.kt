@@ -40,12 +40,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -93,7 +96,7 @@ fun LibraryScreen(vm: AppViewModel) {
                 Text(
                     if (n == 0) "עוד אין שירים מנותחים. פותחים שירים — כל שיר שנפתח נכנס לייצוא."
                     else "ייצוא $n שירים: האקורדים שהאפליקציה זיהתה, מה שתיקנת ידנית, ונתוני הצליל של כל פעימה." +
-                        (if (missing > 0) "\n\nב-$missing שירים עוד חסרים נתוני הצליל. כדי להשלים: לפתוח כל אחד מהם פעם אחת ולהשאיר פתוח כחצי דקה, ואז לייצא שוב." else ""),
+                        (if (missing > 0) "\n\nב-$missing שירים עוד חסרים נתוני הצליל או ניתוח מעודכן. \"השלמה עכשיו\" עוברת עליהם אחד אחד (כחצי דקה לשיר), ואז הייצוא נפתח שוב לבד." else ""),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -106,6 +109,10 @@ fun LibraryScreen(vm: AppViewModel) {
             },
             dismissButton = {
                 Row {
+                    if (missing > 0) TextButton(onClick = {
+                        export = null
+                        vm.completeLibrary { vm.exportCorrections { t, n2, m -> export = Triple(t, n2, m) } }
+                    }) { Text("השלמה עכשיו") }
                     if (n > 0) TextButton(onClick = {
                         if (!shareTextFile(context, exportName, text))
                             Toast.makeText(context, "אין אפליקציה לשליחה — אפשר לשמור בהורדות", Toast.LENGTH_SHORT).show()
@@ -113,6 +120,39 @@ fun LibraryScreen(vm: AppViewModel) {
                     TextButton(onClick = { export = null }) { Text("סגור") }
                 }
             }
+        )
+    }
+
+    vm.bulk?.let { (done, total, title) ->
+        // keep the screen on while the library is being listened to
+        val view = LocalView.current
+        DisposableEffect(Unit) {
+            view.keepScreenOn = true
+            onDispose { view.keepScreenOn = false }
+        }
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = Stage.Cream,
+            title = { Text("משלים נתוני צליל") },
+            text = {
+                Column {
+                    Text(
+                        if (total == 0) "בודק אילו שירים צריכים השלמה…"
+                        else "שיר ${done + 1} מתוך $total\n$title",
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 3, overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { if (total == 0) 0f else done.toFloat() / total },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Stage.Mustard
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("המסך יישאר דלוק. אפשר לעצור ולהמשיך אחר כך — מה שהושלם נשמר.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { vm.stopBulk() }) { Text("עצור") } }
         )
     }
 

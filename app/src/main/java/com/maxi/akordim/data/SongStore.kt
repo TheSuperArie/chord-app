@@ -141,7 +141,7 @@ class SongStore(private val context: Context) {
             } catch (_: Exception) {
                 null
             }
-            if (feat == null) noFeat++
+            if (feat == null || needsReanalysis(r.key)) noFeat++
             val (fileName, size) = try { describe(Uri.parse(r.uri)) } catch (_: Exception) { r.title to 0L }
             songs.put(JSONObject().apply {
                 put("title", r.title)
@@ -182,10 +182,21 @@ class SongStore(private val context: Context) {
 
     companion object {
         /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
-        const val ENGINE_VERSION = 6
+        const val ENGINE_VERSION = 7
     }
 
     fun hasFeatures(key: String) = File(dir, "$key.feat.json").exists()
+
+    /** Analysed by an older engine and not fixed by hand, so opening it would analyse it again. */
+    fun needsReanalysis(key: String): Boolean = try {
+        val f = File(dir, "$key.json")
+        f.exists() && JSONObject(f.readText()).optInt("v") != ENGINE_VERSION && loadAnalysis(key) == null
+    } catch (_: Exception) {
+        false
+    }
+
+    /** Recent songs that still lack sound data or an up-to-date analysis. */
+    fun songsNeedingWork(): List<Recent> = recents().filter { !hasFeatures(it.key) || needsReanalysis(it.key) }
 
     fun saveFeatures(key: String, f: com.maxi.akordim.analysis.BeatFeatures) {
         try {
