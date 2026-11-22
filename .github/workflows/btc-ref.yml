@@ -1,0 +1,41 @@
+name: BTC reference (librosa + torch)
+on: workflow_dispatch
+jobs:
+  ref:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.8' }
+      - name: deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libsndfile1
+          pip install -q numpy==1.19.5 numba==0.48.0 llvmlite==0.31.0 librosa==0.7.2 resampy==0.2.2 soundfile pyyaml
+          pip install -q torch==1.10.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
+      - name: reference
+        run: |
+          git clone -q --depth 1 https://github.com/jayg996/BTC-ISMIR19 btc && cd btc
+          python - <<'PY'
+          import numpy as np, librosa, torch, yaml, sys
+          sys.path.insert(0, '.')
+          from btc_model import BTC_model
+          from utils.hparams import HParams
+          from utils.mir_eval_modules import audio_file_to_features
+          cfg = HParams.load('run_config.yaml'); cfg.feature['large_voca'] = True; cfg.model['num_chords'] = 170
+          y, sr = librosa.load('test/example.mp3', sr=22050, mono=True)
+          np.save('/tmp/y.npy', y.astype(np.float32))
+          feat, fps, _ = audio_file_to_features('test/example.mp3', cfg)
+          np.save('/tmp/feat.npy', feat.T.astype(np.float32))
+          ck = torch.load('test/btc_model_large_voca.pt', map_location='cpu')
+          m = BTC_model(config=cfg.model); m.load_state_dict(ck['model']); m.eval()
+          f = (feat.T - ck['mean']) / ck['std']; n = f.shape[0]; pad = 108 - n % 108
+          f = np.pad(f, ((0, pad), (0, 0))); out = []
+          with torch.no_grad():
+              x = torch.tensor(f, dtype=torch.float32).unsqueeze(0)
+              for t in range(f.shape[0] // 108):
+                  h, _ = m.self_attn_layers(x[:, 108*t:108*(t+1)])
+                  out.append(m.output_layer.output_projection(h)[0].numpy())
+          np.save('/tmp/logits.npy', np.concatenate(out)[:n])
+          print('librosa', librosa.__version__, 'frames', n)
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: btc-ref, path: /tmp/*.npy }
