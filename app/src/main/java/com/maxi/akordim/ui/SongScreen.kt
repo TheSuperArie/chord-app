@@ -69,6 +69,10 @@ fun SongScreen(vm: AppViewModel) {
         StageMode(vm, a)
         return
     }
+    if (vm.showTab4u) {
+        Tab4uScreen(vm)
+        return
+    }
     if (a != null && vm.showSheet) {
         androidx.activity.compose.BackHandler { vm.showSheet = false }
         SheetScreen(vm, a)
@@ -107,7 +111,7 @@ fun SongScreen(vm: AppViewModel) {
                 }
             }
             if (a != null) {
-                IconButton(onClick = { vm.showLyrics = true }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { if (vm.lyrics.isBlank()) vm.showTab4u = true else vm.showLyrics = true }, modifier = Modifier.size(40.dp)) {
                     Icon(Icons.Filled.Edit, "מילים", tint = if (vm.lyrics.isNotBlank()) Stage.Mustard else Stage.Ink)
                 }
                 IconButton(onClick = { vm.showSheet = true }, modifier = Modifier.size(40.dp)) {
@@ -236,7 +240,7 @@ private fun LyricsDialog(vm: AppViewModel) {
         text = {
             Column {
                 Text(
-                    "מעתיקים מטאב4יו ומדביקים כאן. עדיף עם שורות האקורדים — ככה אפשר להשוות לזיהוי של האפליקציה. המילים נכנסות לייצוא.",
+                    "האקורדים והמילים של השיר (נכנסים לייצוא). \"חיפוש בטאב4יו\" מביא אותם אוטומטית.",
                     style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                 )
                 Spacer(Modifier.height(8.dp))
@@ -253,6 +257,7 @@ private fun LyricsDialog(vm: AppViewModel) {
                         else text = if (text.isBlank()) clip else text.trimEnd() + "\n" + clip
                     }) { Text("הדבקה") }
                     if (text.isNotBlank()) androidx.compose.material3.TextButton(onClick = { text = "" }) { Text("ניקוי") }
+                    androidx.compose.material3.TextButton(onClick = { vm.showLyrics = false; vm.showTab4u = true }) { Text("חיפוש בטאב4יו") }
                 }
             }
         },

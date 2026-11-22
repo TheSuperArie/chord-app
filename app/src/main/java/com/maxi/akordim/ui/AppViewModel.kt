@@ -103,6 +103,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var showTools by mutableStateOf(false)
     var showSheet by mutableStateOf(false)
     var showLyrics by mutableStateOf(false)
+    var showTab4u by mutableStateOf(false)
 
     /** Words pasted for the open song ("" = none). */
     var lyrics by mutableStateOf("")
