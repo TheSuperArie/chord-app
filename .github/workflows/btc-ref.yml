@@ -9,7 +9,7 @@ jobs:
       - name: deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libsndfile1
-          pip install -q numpy==1.19.5 numba==0.48.0 llvmlite==0.31.0 librosa==0.7.2 resampy==0.2.2 soundfile pyyaml
+          pip install -q numpy==1.19.5 numba==0.48.0 llvmlite==0.31.0 librosa==0.7.2 resampy==0.2.2 soundfile pyyaml mir_eval==0.6 pretty_midi
           pip install -q torch==1.10.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
       - name: reference
         run: |
