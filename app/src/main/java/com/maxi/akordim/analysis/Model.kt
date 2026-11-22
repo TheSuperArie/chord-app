@@ -31,6 +31,7 @@ data class SongAnalysis(
     val tempoStability: Float, // 0..1, how steady the beat is
     val loudnessDb: Double,
     val analysisMillis: Long,
+    val engine: String = "", // "ai" (BTC) / "classic" / "classic:<why the AI was not used>"
 ) {
     fun segmentAt(t: Double): Int {
         if (segments.isEmpty()) return -1
@@ -102,6 +103,7 @@ data class SongAnalysis(
         put("stability", tempoStability.toDouble())
         put("loud", loudnessDb)
         put("ms", analysisMillis)
+        put("eng", engine)
         put("secs", JSONArray().also { a ->
             sections.forEach { x ->
                 a.put(JSONObject().apply {
@@ -158,6 +160,7 @@ data class SongAnalysis(
                 tempoStability = o.getDouble("stability").toFloat(),
                 loudnessDb = o.getDouble("loud"),
                 analysisMillis = o.getLong("ms"),
+                engine = o.optString("eng", ""),
             )
         }
     }

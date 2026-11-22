@@ -154,6 +154,8 @@ class SongStore(private val context: Context) {
                 put("downbeatPhase", a.downbeatPhase)
                 put("tuning", a.tuningCents)
                 put("edited", edited)
+                put("eng", a.engine)
+                put("ms", a.analysisMillis)
                 loadLyrics(r.key).takeIf { it.isNotBlank() }?.let { put("lyrics", it) }
                 if (feat != null) put("features", feat)
                 put("beats", JSONArray().also { b -> a.beats.forEach { b.put(Math.round(it * 1000) / 1000.0) } })

@@ -281,7 +281,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val audio = AudioDecoder.decode(getApplication(), uri, cancelled = { !isActive }) { }
                 if (!isActive) return@launch
-                val an = Analyzer { _, _ -> }
+                val an = Analyzer(ai = false) { _, _ -> }
                 an.analyze(audio)
                 an.lastFeatures?.let { store.saveFeatures(key, it) }
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -306,7 +306,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val audio = AudioDecoder.decode(getApplication(), uri, cancelled = { !isActive }) { p ->
                     progress = 0.35f * p
                 }
-                val analyzer = Analyzer { p, text ->
+                val analyzer = Analyzer(ai = true) { p, text ->
                     progress = 0.35f + 0.65f * p
                     progressText = text
                 }

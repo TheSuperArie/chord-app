@@ -24,7 +24,10 @@ import kotlin.math.sqrt
  * (with slash basses and ranked alternatives). Pure Kotlin, no Android dependencies.
  * Input: mono audio at [SR] Hz.
  */
-class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
+class Analyzer(
+    private val ai: Boolean = true,
+    private val progress: (Float, String) -> Unit = { _, _ -> },
+) {
 
     companion object {
         const val SR = 11025
@@ -148,14 +151,15 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         var key = bestKey(keyScores, null)
         // AI engine (BTC transformer) when its weights are available, else the classic recogniser
         progress(0.75f, "בינה מלאכותית מזהה אקורדים")
-        val ai = if (useAi && Btc.ready()) try {
+        var why = ""
+        val aiPath = if (!ai || !useAi) null else if (!Btc.ready()) { why = "המודל לא נטען: " + Btc.loadError; null } else try {
             Btc.beatPath(x, peak, beats, bpb, phase)
         } catch (e: Throwable) {
-            null
-        } else null
+            why = "שגיאה: " + e.javaClass.simpleName + " " + (e.message ?: ""); null
+        }
         var path: IntArray
-        if (ai != null && ai.size == nb) {
-            path = ai
+        if (aiPath != null && aiPath.size == nb) {
+            path = aiPath
             key = bestKey(keyScores, path)
             engineUsed = "ai"
         } else {
@@ -169,7 +173,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             absorbPassingBass(path, processed, bpb, phase)
             refineQualities(path, processed, key)
             findInversions(path, processed, beatBass)
-            engineUsed = "classic"
+            engineUsed = if (why.isEmpty()) "classic" else "classic:$why"
         }
         val keyConf = keyConfidence(keyScores, path, key)
 
@@ -197,6 +201,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
             tempoStability = stability,
             loudnessDb = loudnessDb,
             analysisMillis = System.currentTimeMillis() - t0,
+            engine = engineUsed,
         )
     }
 

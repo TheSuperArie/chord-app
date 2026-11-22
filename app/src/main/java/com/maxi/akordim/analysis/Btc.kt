@@ -34,6 +34,8 @@ object Btc {
 
     @Volatile private var model: Model? = null
     @Volatile private var failed = false
+    @Volatile var loadError = ""
+        private set
 
     fun init(context: Context) {
         if (model != null || failed) return
@@ -41,6 +43,7 @@ object Btc {
             try {
                 synchronized(this) { if (model == null) model = context.assets.open("btc.bin").use { Model.load(it) } }
             } catch (e: Throwable) {
+                loadError = e.javaClass.simpleName + " " + (e.message ?: "")
                 failed = true
             }
         }.start()

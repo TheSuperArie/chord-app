@@ -109,6 +109,15 @@ fun DetailsTab(vm: AppViewModel, a: SongAnalysis) {
                     style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                 )
                 Text(
+                    when {
+                        a.engine == "ai" -> "מנוע: בינה מלאכותית"
+                        a.engine.startsWith("classic:") -> "מנוע: הישן (" + a.engine.removePrefix("classic:") + ")"
+                        a.engine == "classic" -> "מנוע: הישן"
+                        else -> "מנוע: הישן (נותח בגרסה קודמת)"
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = if (a.engine == "ai") Stage.Mustard else Stage.InkSoft
+                )
+                Text(
                     "הזיהוי מדויק יותר בשירים עם כלי אחד או שניים. אם אקורד לא נכון, לחץ עליו במסך הנגן ובחר חלופה.",
                     style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
                 )
