@@ -69,7 +69,7 @@ DEFAULT = dict(
     dia_bonus=0.035, bass_w=0.12, kappa=24.0,
     p_down=0.35, p_half=0.15, p_other=0.06,
     refine=True, strong_third=0.3, third_ratio=1.3, song_mode_ratio=1.25,
-    sus_ratio=1.5, sus_root=0.4, refine_cplx=0.7,
+    sus_ratio=1.5, sus_root=0.8, refine_cplx=1.0,  # engine 9
     absorb=True,
     # experimental knobs (off = engine 7)
     min_bass_third=0.0,       # in refine: weight of bass chroma on 3rd evidence

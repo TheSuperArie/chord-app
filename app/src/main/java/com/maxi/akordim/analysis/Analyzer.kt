@@ -856,8 +856,8 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                 // sus only when the 4th / 2nd really replaces the third
                 val e4 = avg[Notes.pc(root + 5)]
                 val e2 = avg[Notes.pc(root + 2)]
-                val sus4ok = e4 > 1.5 * third && e4 > 0.4 * eRoot
-                val sus2ok = e2 > 1.5 * third && e2 > 0.4 * eRoot
+                val sus4ok = e4 > 1.5 * third && e4 > 0.8 * eRoot
+                val sus2ok = e2 > 1.5 * third && e2 > 0.8 * eRoot
                 var best = -1
                 var bestS = Double.NEGATIVE_INFINITY
                 for (i in VOCAB.indices) {
@@ -870,7 +870,7 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
                         else -> mode < 0
                     }
                     if (!ok) continue
-                    var sc = dot(avg, templates[i]) + 0.7 * COMPLEXITY.getValue(c.quality)
+                    var sc = dot(avg, templates[i]) + 1.0 * COMPLEXITY.getValue(c.quality)
                     if (c in dia) sc += 0.02
                     if (i == idx) sc += 0.01
                     if (sc > bestS) {

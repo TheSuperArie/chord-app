@@ -1,5 +1,5 @@
 import json, sys
-sys.path.insert(0, '/home/claude/harness')
+import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import engine as E
 NM = {n: i for i, n in enumerate(E.NAMES)}
 NM.update({'C#': 1, 'Db': 1, 'D#': 3, 'Eb': 3, 'F#': 6, 'Gb': 6, 'G#': 8, 'Ab': 8, 'A#': 10, 'Bb': 10})
