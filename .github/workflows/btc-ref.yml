@@ -37,5 +37,26 @@ jobs:
           np.save('/tmp/logits.npy', np.concatenate(out)[:n])
           print('librosa', librosa.__version__, 'frames', n)
           PY
+      - uses: actions/checkout@v4
+        with: { path: app }
+      - name: compare with the numpy port
+        run: |
+          cd app/tools/btc && python - <<'PY'
+          import numpy as np, librosa
+          import btcnp, cqtmr
+          y = np.load('/tmp/y.npy'); R = np.load('/tmp/feat.npy'); TL = np.load('/tmp/logits.npy')
+          m = btcnp.BTC('../../../btc/test/btc_model_large_voca.pt')
+          L = m.logits(R)
+          print('MODEL on librosa feats: max|dlogit|', float(np.abs(L - TL).max()), 'argmax agree', float((L.argmax(1) == TL.argmax(1)).mean()))
+          D = btcnp.features(y); n = min(len(D), len(R))
+          d = D[:n] - R[:n]
+          print('DIRECT cqt vs librosa: mean diff per octave', [round(float(d[:, o*24:(o+1)*24].mean()), 3) for o in range(6)], 'mean|d|', float(np.abs(d).mean()))
+          print('   per-bin mean diff', np.round(d.mean(0), 2).tolist())
+          print('   argmax agree', float((m.logits(D)[:n].argmax(1) == TL[:n].argmax(1)).mean()))
+          y11 = librosa.resample(y, 22050, 11025)
+          M = cqtmr.features(y11); n = min(len(M), len(R)); d = M[:n] - R[:n]
+          print('MULTIRATE@11025 vs librosa: mean diff per octave', [round(float(d[:, o*24:(o+1)*24].mean()), 3) for o in range(6)], 'mean|d|', float(np.abs(d).mean()))
+          print('   argmax agree', float((m.logits(M)[:n].argmax(1) == TL[:n].argmax(1)).mean()))
+          PY
       - uses: actions/upload-artifact@v4
         with: { name: btc-ref, path: /tmp/*.npy }
