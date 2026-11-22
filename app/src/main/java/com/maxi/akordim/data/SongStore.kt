@@ -154,6 +154,7 @@ class SongStore(private val context: Context) {
                 put("downbeatPhase", a.downbeatPhase)
                 put("tuning", a.tuningCents)
                 put("edited", edited)
+                loadLyrics(r.key).takeIf { it.isNotBlank() }?.let { put("lyrics", it) }
                 if (feat != null) put("features", feat)
                 put("beats", JSONArray().also { b -> a.beats.forEach { b.put(Math.round(it * 1000) / 1000.0) } })
                 put("chords", JSONArray().also { arr ->
@@ -172,7 +173,7 @@ class SongStore(private val context: Context) {
         }
         val doc = JSONObject().apply {
             put("app", "akordim")
-            put("format", 1)
+            put("format", 2)
             put("engine", ENGINE_VERSION)
             put("exported", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()))
             put("songs", songs)
@@ -184,6 +185,22 @@ class SongStore(private val context: Context) {
         /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
         const val ENGINE_VERSION = 8
     }
+
+    /** Song words the user pasted (e.g. from tab4u), kept beside the analysis. */
+    fun loadLyrics(key: String): String = try {
+        File(dir, "$key.lyrics.txt").takeIf { it.exists() }?.readText() ?: ""
+    } catch (_: Exception) {
+        ""
+    }
+
+    fun saveLyrics(key: String, text: String) {
+        try {
+            val f = File(dir, "$key.lyrics.txt")
+            if (text.isBlank()) f.delete() else f.writeText(text.trim())
+        } catch (_: Exception) {}
+    }
+
+    fun lyricsCount(): Int = recents().count { File(dir, "${it.key}.lyrics.txt").exists() }
 
     fun hasFeatures(key: String) = File(dir, "$key.feat.json").exists()
 

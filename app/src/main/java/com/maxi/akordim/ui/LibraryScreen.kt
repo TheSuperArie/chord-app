@@ -87,6 +87,8 @@ fun LibraryScreen(vm: AppViewModel) {
     // export for engine tuning: null = closed, otherwise text, song count, songs without sound data
     var export by remember { mutableStateOf<Triple<String, Int, Int>?>(null) }
     val exportName = remember(export) { correctionsFileName() }
+    var withLyrics by remember { mutableStateOf(0) }
+    LaunchedEffect(export) { if (export != null) vm.lyricsCount { withLyrics = it } }
     export?.let { (text, n, missing) ->
         AlertDialog(
             onDismissRequest = { export = null },
@@ -96,6 +98,7 @@ fun LibraryScreen(vm: AppViewModel) {
                 Text(
                     if (n == 0) "עוד אין שירים מנותחים. פותחים שירים — כל שיר שנפתח נכנס לייצוא."
                     else "ייצוא $n שירים: האקורדים שהאפליקציה זיהתה, מה שתיקנת ידנית, ונתוני הצליל של כל פעימה." +
+                        (if (withLyrics > 0) "\nכולל מילים ב-$withLyrics שירים." else "") +
                         (if (missing > 0) "\n\nב-$missing שירים עוד חסרים נתוני הצליל או ניתוח מעודכן. \"השלמה עכשיו\" עוברת עליהם אחד אחד (כחצי דקה לשיר), ואז הייצוא נפתח שוב לבד." else ""),
                     style = MaterialTheme.typography.bodyMedium
                 )

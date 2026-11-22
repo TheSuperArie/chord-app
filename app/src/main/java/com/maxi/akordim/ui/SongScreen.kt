@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,6 +74,8 @@ fun SongScreen(vm: AppViewModel) {
         SheetScreen(vm, a)
         return
     }
+    vm.song?.key?.let { k -> androidx.compose.runtime.LaunchedEffect(k) { vm.loadLyrics(k) } }
+    if (vm.showLyrics) LyricsDialog(vm)
     // keep the screen awake while a song plays
     val view = androidx.compose.ui.platform.LocalView.current
     androidx.compose.runtime.DisposableEffect(vm.isPlaying) {
@@ -104,6 +107,9 @@ fun SongScreen(vm: AppViewModel) {
                 }
             }
             if (a != null) {
+                IconButton(onClick = { vm.showLyrics = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Edit, "מילים", tint = if (vm.lyrics.isNotBlank()) Stage.Mustard else Stage.Ink)
+                }
                 IconButton(onClick = { vm.showSheet = true }, modifier = Modifier.size(40.dp)) {
                     Icon(Icons.Filled.Description, "דף אקורדים", tint = Stage.Ink)
                 }
@@ -217,3 +223,47 @@ fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ) { content() }
 }
 
+
+@Composable
+private fun LyricsDialog(vm: AppViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var text by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.lyrics) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { vm.showLyrics = false },
+        containerColor = Stage.Cream,
+        title = { Text("מילים לשיר") },
+        text = {
+            Column {
+                Text(
+                    "מעתיקים מטאב4יו ומדביקים כאן. עדיף עם שורות האקורדים — ככה אפשר להשוות לזיהוי של האפליקציה. המילים נכנסות לייצוא.",
+                    style = MaterialTheme.typography.bodySmall, color = Stage.InkSoft
+                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = text, onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().height(260.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Stage.Ink),
+                    placeholder = { Text("כאן מדביקים…") }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.material3.TextButton(onClick = {
+                        val clip = clipboard.getText()?.text
+                        if (clip.isNullOrBlank()) android.widget.Toast.makeText(context, "אין טקסט מועתק", android.widget.Toast.LENGTH_SHORT).show()
+                        else text = if (text.isBlank()) clip else text.trimEnd() + "\n" + clip
+                    }) { Text("הדבקה") }
+                    if (text.isNotBlank()) androidx.compose.material3.TextButton(onClick = { text = "" }) { Text("ניקוי") }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                vm.saveLyrics(text); vm.showLyrics = false
+                android.widget.Toast.makeText(context, if (text.isBlank()) "המילים נמחקו" else "המילים נשמרו", android.widget.Toast.LENGTH_SHORT).show()
+            }) { Text("שמירה") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = { vm.showLyrics = false }) { Text("ביטול") }
+        }
+    )
+}

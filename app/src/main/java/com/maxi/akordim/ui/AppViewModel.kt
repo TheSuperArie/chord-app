@@ -102,6 +102,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var stageMode by mutableStateOf(false)
     var showTools by mutableStateOf(false)
     var showSheet by mutableStateOf(false)
+    var showLyrics by mutableStateOf(false)
+
+    /** Words pasted for the open song ("" = none). */
+    var lyrics by mutableStateOf("")
+        private set
+    private var lyricsKey: String? = null
+
+    fun loadLyrics(key: String) {
+        if (lyricsKey == key) return
+        lyricsKey = key
+        lyrics = ""
+        viewModelScope.launch { lyrics = withContext(Dispatchers.IO) { store.loadLyrics(key) } }
+    }
+
+    fun saveLyrics(text: String) {
+        val key = lyricsKey ?: return
+        lyrics = text.trim()
+        viewModelScope.launch(Dispatchers.IO) { store.saveLyrics(key, text) }
+    }
+
+    fun lyricsCount(done: (Int) -> Unit) {
+        viewModelScope.launch { done(withContext(Dispatchers.IO) { store.lyricsCount() }) }
+    }
 
     // the singer's range, remembered between songs (MIDI, -1 = unknown)
     var voiceLow by mutableIntStateOf(prefs.getInt("voiceLow", -1))
