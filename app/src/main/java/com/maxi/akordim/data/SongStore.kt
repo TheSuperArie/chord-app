@@ -183,7 +183,7 @@ class SongStore(private val context: Context) {
 
     companion object {
         /** Bump together with the "v" written by SongAnalysis.toJson when the recogniser changes. */
-        const val ENGINE_VERSION = 9
+        const val ENGINE_VERSION = 10
     }
 
     /** Song words the user pasted (e.g. from tab4u), kept beside the analysis. */

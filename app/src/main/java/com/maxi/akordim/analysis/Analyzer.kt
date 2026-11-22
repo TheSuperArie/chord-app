@@ -28,6 +28,8 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
 
     companion object {
         const val SR = 11025
+        /** Use the AI engine (Btc) when its weights are loaded. */
+        @Volatile var useAi = true
         private const val ONSET_N = 512
         private const val ONSET_HOP = 128
         private const val CHROMA_HOP = 512
@@ -79,6 +81,10 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
     }
 
     private val templates = VOCAB.map { template(it) }
+
+    /** Which recogniser produced the last result: "ai" (BTC) or "classic". */
+    var engineUsed = "classic"
+        private set
 
     /** Per-beat harmony of the last analysed song, kept for exporting (engine tuning). */
     var lastFeatures: BeatFeatures? = null
@@ -140,16 +146,31 @@ class Analyzer(private val progress: (Float, String) -> Unit = { _, _ -> }) {
         val (bpb, phase) = detectMeter(accent, change)
 
         var key = bestKey(keyScores, null)
-        var path = viterbi(processed, bassNorm, beatEnergy, medEnergy, key, bpb, phase)
-        // Refine the key using the recognised chords, then redo the chords once if it moved
-        val refined = bestKey(keyScores, path)
-        if (refined != key) {
-            key = refined
+        // AI engine (BTC transformer) when its weights are available, else the classic recogniser
+        progress(0.75f, "בינה מלאכותית מזהה אקורדים")
+        val ai = if (useAi && Btc.ready()) try {
+            Btc.beatPath(x, peak, beats, bpb, phase)
+        } catch (e: Throwable) {
+            null
+        } else null
+        var path: IntArray
+        if (ai != null && ai.size == nb) {
+            path = ai
+            key = bestKey(keyScores, path)
+            engineUsed = "ai"
+        } else {
             path = viterbi(processed, bassNorm, beatEnergy, medEnergy, key, bpb, phase)
+            // Refine the key using the recognised chords, then redo the chords once if it moved
+            val refined = bestKey(keyScores, path)
+            if (refined != key) {
+                key = refined
+                path = viterbi(processed, bassNorm, beatEnergy, medEnergy, key, bpb, phase)
+            }
+            absorbPassingBass(path, processed, bpb, phase)
+            refineQualities(path, processed, key)
+            findInversions(path, processed, beatBass)
+            engineUsed = "classic"
         }
-        absorbPassingBass(path, processed, bpb, phase)
-        refineQualities(path, processed, key)
-        findInversions(path, processed, beatBass)
         val keyConf = keyConfidence(keyScores, path, key)
 
         progress(0.9f, "מזהה בס")

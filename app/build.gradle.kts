@@ -59,4 +59,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    testImplementation("junit:junit:4.13.2")
+}
+
+tasks.withType<Test> {
+    testLogging { showStandardStreams = true; events("passed", "failed") }
+    maxHeapSize = "2g"
 }

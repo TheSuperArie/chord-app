@@ -36,6 +36,8 @@ import kotlin.math.pow
 data class OpenSong(val uri: Uri, val title: String, val key: String)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
+    init { com.maxi.akordim.analysis.Btc.init(app) }
+
     private val store = SongStore(app)
     val synth = PianoSynth()
     val player: ExoPlayer = ExoPlayer.Builder(app).build()
